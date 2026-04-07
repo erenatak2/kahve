@@ -25,15 +25,13 @@ export function AdminLoginForm() {
       email,
       password,
       redirect: false,
-      callbackUrl: window.location.origin + '/admin'
     })
 
     if (result?.error) {
       toast({ title: 'Hata', description: 'E-posta veya şifre hatalı.', variant: 'destructive' })
       setLoading(false)
     } else {
-      // Force reload to bypass stale URL state
-      window.location.href = '/admin'
+      router.refresh()
     }
   }
 
