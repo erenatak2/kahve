@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/components/ui/use-toast'
 import { Users, UserPlus, Eye, EyeOff, Trash2, ShieldCheck, User, Edit, UserCog } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 
 export default function EkipYonetimiPage() {
   const [team, setTeam] = useState<any[]>([])
@@ -20,6 +21,7 @@ export default function EkipYonetimiPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
   const { toast } = useToast()
+  const router = useRouter()
 
   const fetchTeam = async () => {
     try {
@@ -58,6 +60,7 @@ export default function EkipYonetimiPage() {
         toast({ title: 'Başarılı', description: editingId ? 'Ekip üyesi güncellendi.' : 'Yeni ekip üyesi sisteme eklendi.' })
         cancelEdit()
         fetchTeam() // Refresh list
+        router.refresh() // Silently reload layout Server Components to update sidebar if user edited themselves
       } else {
         toast({ title: 'Hata', description: data.error || 'İşlem başarısız.', variant: 'destructive' })
       }
@@ -95,6 +98,7 @@ export default function EkipYonetimiPage() {
       if (res.ok) {
         toast({ title: 'Silindi', description: 'Kullanıcı sistemden başarıyla kaldırıldı.' })
         fetchTeam()
+        router.refresh()
       } else {
         toast({ title: 'Hata', description: data.error || 'Silinemedi.', variant: 'destructive' })
       }

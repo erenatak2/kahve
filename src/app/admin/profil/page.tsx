@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/components/ui/use-toast'
 import { KeyRound, User, Shuffle } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 
 export default function AdminProfilPage() {
   const { data: session } = useSession()
@@ -19,6 +20,7 @@ export default function AdminProfilPage() {
   const [loading, setLoading] = useState(false)
   const [profileLoading, setProfileLoading] = useState(false)
   const { toast } = useToast()
+  const router = useRouter()
 
   const handleProfileUpdate = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -30,7 +32,8 @@ export default function AdminProfilPage() {
     })
 
     if (res.ok) {
-      toast({ title: 'Profil güncellendi', description: 'Değişikliklerin her yerde görünmesi için tekrar giriş yapmanız gerekebilir.' })
+      toast({ title: 'Profil güncellendi', description: 'Bilgileriniz başarıyla kaydedildi.' })
+      router.refresh() // Sessizce layout'u yenile
     } else {
       const err = await res.json().catch(() => ({}))
       toast({ title: 'Hata', description: err.error || 'Profil güncellenemedi', variant: 'destructive' })
