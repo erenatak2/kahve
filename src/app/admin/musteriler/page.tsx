@@ -368,8 +368,8 @@ export default function MusterilerPage() {
                 <Input type="email" value={form.email} onChange={e => setForm({...form, email: e.target.value})} required />
               </div>
               <div className="space-y-2">
-                <Label>Şifre (boş=123456)</Label>
-                <Input type="password" placeholder="123456" value={form.password} onChange={e => setForm({...form, password: e.target.value})} />
+                <Label>Şifre</Label>
+                <Input type="password" value={form.password} onChange={e => setForm({...form, password: e.target.value})} />
               </div>
               <div className="space-y-2">
                 <Label>Telefon *</Label>
