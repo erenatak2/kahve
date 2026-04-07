@@ -280,7 +280,7 @@ export function AdminSidebar({ user, onClose }: { user: { name?: string; email?:
           <Button
             variant="ghost"
             className="flex-[2] justify-start text-red-600 hover:text-red-700 hover:bg-red-50"
-            onClick={() => signOut({ callbackUrl: '/login' })}
+            onClick={() => signOut({ callbackUrl: '/admin' })}
           >
             <LogOut className="mr-2 h-4 w-4" />
             Çıkış Yap
