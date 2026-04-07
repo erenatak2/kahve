@@ -383,8 +383,25 @@ export default function MusterilerPage() {
                     placeholder="XXX-XXX-XX-XX"
                     value={form.phone}
                     onChange={e => {
-                      const v = e.target.value.replace(/\D/g, '').slice(0, 10)
+                      const input = e.target
+                      const start = input.selectionStart || 0
+                      let v = input.value.replace(/\D/g, '').slice(0, 10)
+                      
+                      // Eski değeri ve pozisyonu kaydet ki tire eklendiğinde imleci kaydıralım
+                      const oldLen = form.phone.length
+                      
+                      if (v.length > 7) v = v.slice(0, 3) + '-' + v.slice(3, 6) + '-' + v.slice(6, 8) + '-' + v.slice(8)
+                      else if (v.length > 6) v = v.slice(0, 3) + '-' + v.slice(3, 6) + '-' + v.slice(6)
+                      else if (v.length > 3) v = v.slice(0, 3) + '-' + v.slice(3)
+                      
                       setForm({...form, phone: v})
+                      
+                      // İmleci koru (tirelerin eklenip silinmesini hesaba katarak)
+                      setTimeout(() => {
+                        const newLen = v.length
+                        const diff = newLen - oldLen
+                        input.setSelectionRange(start + (diff > 0 ? diff : 0), start + (diff > 0 ? diff : 0))
+                      }, 0)
                     }}
                     required
                     className="flex-1"
@@ -561,8 +578,23 @@ export default function MusterilerPage() {
                     placeholder="XXX-XXX-XX-XX"
                     value={editForm.phone}
                     onChange={e => {
-                      const v = e.target.value.replace(/\D/g, '').slice(0, 10)
+                      const input = e.target
+                      const start = input.selectionStart || 0
+                      let v = input.value.replace(/\D/g, '').slice(0, 10)
+                      
+                      const oldLen = editForm.phone.length
+                      
+                      if (v.length > 7) v = v.slice(0, 3) + '-' + v.slice(3, 6) + '-' + v.slice(6, 8) + '-' + v.slice(8)
+                      else if (v.length > 6) v = v.slice(0, 3) + '-' + v.slice(3, 6) + '-' + v.slice(6)
+                      else if (v.length > 3) v = v.slice(0, 3) + '-' + v.slice(3)
+                      
                       setEditForm({...editForm, phone: v})
+                      
+                      setTimeout(() => {
+                        const newLen = v.length
+                        const diff = newLen - oldLen
+                        input.setSelectionRange(start + (diff > 0 ? diff : 0), start + (diff > 0 ? diff : 0))
+                      }, 0)
                     }}
                     className="flex-1"
                   />
