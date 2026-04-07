@@ -12,9 +12,12 @@ import { ShoppingCart, Users, Package, TrendingUp, Clock, CreditCard } from 'luc
 
 // Dashboard Component
 function AdminDashboard() {
+  const { data: session } = useSession()
   const [data, setData] = useState<any>(null)
   const [pendingPayments, setPendingPayments] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+
+  const isSalesRep = (session?.user as any)?.role === 'SATICI'
 
   useEffect(() => {
     Promise.all([
@@ -38,17 +41,21 @@ function AdminDashboard() {
   const overdueCount = pendingPayments.filter((p: any) => p.status === 'GECIKTI').length
 
   const stats = [
-    { title: 'Toplam Sipariş', value: data?.totalOrders || 0, icon: ShoppingCart, color: 'text-blue-600', bg: 'bg-blue-50' },
-    { title: 'Toplam Ciro', value: formatCurrency(data?.totalRevenue || 0), icon: TrendingUp, color: 'text-green-600', bg: 'bg-green-50' },
-    { title: 'Aktif Müşteri', value: data?.totalCustomers || 0, icon: Users, color: 'text-purple-600', bg: 'bg-purple-50' },
-    { title: totalPendingDebt > 0 ? `Alacaklar${overdueCount > 0 ? ` (${overdueCount} gecikmiş)` : ''}` : 'Ürün Sayısı', value: totalPendingDebt > 0 ? formatCurrency(totalPendingDebt) : data?.totalProducts || 0, icon: totalPendingDebt > 0 ? CreditCard : Package, color: totalPendingDebt > 0 ? 'text-red-600' : 'text-orange-600', bg: totalPendingDebt > 0 ? 'bg-red-50' : 'bg-orange-50' },
+    { title: isSalesRep ? 'Kendi Siparişlerim' : 'Toplam Sipariş', value: data?.totalOrders || 0, icon: ShoppingCart, color: 'text-blue-600', bg: 'bg-blue-50' },
+    { title: isSalesRep ? 'Kendi Cirom' : 'Toplam Ciro', value: formatCurrency(data?.totalRevenue || 0), icon: TrendingUp, color: 'text-green-600', bg: 'bg-green-50' },
+    { title: isSalesRep ? 'Benim Müşterilerim' : 'Aktif Müşteri', value: data?.totalCustomers || 0, icon: Users, color: 'text-purple-600', bg: 'bg-purple-50' },
+    { title: totalPendingDebt > 0 ? (isSalesRep ? 'Müşterilerimin Borcu' : `Alacaklar${overdueCount > 0 ? ` (${overdueCount} gecikmiş)` : ''}`) : 'Ürün Sayısı', value: totalPendingDebt > 0 ? formatCurrency(totalPendingDebt) : data?.totalProducts || 0, icon: totalPendingDebt > 0 ? CreditCard : Package, color: totalPendingDebt > 0 ? 'text-red-600' : 'text-orange-600', bg: totalPendingDebt > 0 ? 'bg-red-50' : 'bg-orange-50' },
   ]
 
   return (
     <div className="p-4 md:p-6 space-y-4 md:space-y-6">
       <div>
-        <h1 className="text-xl md:text-2xl font-bold text-gray-900">Gösterge Paneli</h1>
-        <p className="text-gray-500 text-sm mt-1">Satış yönetim sistemi genel özeti</p>
+        <h1 className="text-xl md:text-2xl font-bold text-gray-900">
+          {isSalesRep ? `Hoş Geldin, ${session?.user?.name}` : 'Gösterge Paneli'}
+        </h1>
+        <p className="text-gray-500 text-sm mt-1">
+          {isSalesRep ? 'Satış performansınız ve bekleyen işleriniz.' : 'Satış yönetim sistemi genel özeti'}
+        </p>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
@@ -145,7 +152,13 @@ function AdminDashboard() {
 export default function AdminPage() {
   const { data: session, status } = useSession()
 
-  if (status === 'authenticated' && (session?.user as any)?.role === 'ADMIN') {
+  if (status === 'loading') return (
+    <div className="p-8 flex items-center justify-center h-full">
+      <Loader2 className="animate-spin h-8 w-8 text-blue-600" />
+    </div>
+  )
+
+  if (status === 'authenticated' && ((session?.user as any)?.role === 'ADMIN' || (session?.user as any)?.role === 'SATICI')) {
     return <AdminDashboard />
   }
 

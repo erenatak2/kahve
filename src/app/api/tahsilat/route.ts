@@ -19,6 +19,9 @@ export async function GET(req: NextRequest) {
 
   if (role === 'MUSTERI') {
     where.order = { customerId }
+  } else if (role === 'SATICI') {
+    // Satıcı sadece kendi müşterilerinin tahsilatlarını görebilir
+    where.order = { customer: { salesRepId: (session.user as any).id } }
   } else {
     // Admin case: see everything ONLY if ?all=true is provided
     if (all) {
