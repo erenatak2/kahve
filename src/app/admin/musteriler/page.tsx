@@ -383,11 +383,7 @@ export default function MusterilerPage() {
                     placeholder="XXX-XXX-XX-XX"
                     value={form.phone}
                     onChange={e => {
-                      let v = e.target.value.replace(/\D/g, '').slice(0, 10)
-                      if (v.startsWith('0')) v = v.slice(1)
-                      if (v.length > 7) v = v.slice(0, 3) + '-' + v.slice(3, 6) + '-' + v.slice(6, 8) + '-' + v.slice(8)
-                      else if (v.length > 6) v = v.slice(0, 3) + '-' + v.slice(3, 6) + '-' + v.slice(6)
-                      else if (v.length > 3) v = v.slice(0, 3) + '-' + v.slice(3)
+                      const v = e.target.value.replace(/\D/g, '').slice(0, 10)
                       setForm({...form, phone: v})
                     }}
                     required
@@ -565,11 +561,7 @@ export default function MusterilerPage() {
                     placeholder="XXX-XXX-XX-XX"
                     value={editForm.phone}
                     onChange={e => {
-                      let v = e.target.value.replace(/\D/g, '').slice(0, 10)
-                      if (v.startsWith('0')) v = v.slice(1)
-                      if (v.length > 7) v = v.slice(0, 3) + '-' + v.slice(3, 6) + '-' + v.slice(6, 8) + '-' + v.slice(8)
-                      else if (v.length > 6) v = v.slice(0, 3) + '-' + v.slice(3, 6) + '-' + v.slice(6)
-                      else if (v.length > 3) v = v.slice(0, 3) + '-' + v.slice(3)
+                      const v = e.target.value.replace(/\D/g, '').slice(0, 10)
                       setEditForm({...editForm, phone: v})
                     }}
                     className="flex-1"
