@@ -122,6 +122,11 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: 'Geçersiz rol türü.' }, { status: 400 })
   }
 
+  // Kendi yetkisini düşürmesini engelle
+  if (id === (session.user as any).id && role !== 'ADMIN') {
+    return NextResponse.json({ error: 'Kendi hesabınızın yetkisini düşüremezsiniz! Sistem dışında kalırsınız.' }, { status: 400 })
+  }
+
   // E-posta çakışmasını kontrol et (Kendi e-postası hariç)
   const existing = await prisma.user.findFirst({
     where: {
