@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/components/ui/use-toast'
-import { Users, UserPlus, Eye, EyeOff, Trash2, ShieldCheck, User } from 'lucide-react'
+import { Users, UserPlus, Eye, EyeOff, Trash2, ShieldCheck, User, Edit, UserCog } from 'lucide-react'
 
 export default function EkipYonetimiPage() {
   const [team, setTeam] = useState<any[]>([])
@@ -15,6 +15,7 @@ export default function EkipYonetimiPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [role, setRole] = useState('SATICI')
+  const [editingId, setEditingId] = useState<string | null>(null)
   const [showPassword, setShowPassword] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
@@ -43,27 +44,45 @@ export default function EkipYonetimiPage() {
     e.preventDefault()
     setIsSubmitting(true)
     try {
-      const res = await fetch('/api/admin/ekip', {
-        method: 'POST',
+      const url = '/api/admin/ekip'
+      const payload = editingId ? { id: editingId, name, email, password, role } : { name, email, password, role }
+      
+      const res = await fetch(url, {
+        method: editingId ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, password, role }),
+        body: JSON.stringify(payload),
       })
       const data = await res.json()
       
       if (res.ok) {
-        toast({ title: 'Başarılı', description: 'Yeni ekip üyesi sisteme eklendi.' })
-        setName('')
-        setEmail('')
-        setPassword('')
-        setRole('SATICI')
+        toast({ title: 'Başarılı', description: editingId ? 'Ekip üyesi güncellendi.' : 'Yeni ekip üyesi sisteme eklendi.' })
+        cancelEdit()
         fetchTeam() // Refresh list
       } else {
-        toast({ title: 'Hata', description: data.error || 'Eklenemedi.', variant: 'destructive' })
+        toast({ title: 'Hata', description: data.error || 'İşlem başarısız.', variant: 'destructive' })
       }
     } catch (error) {
       toast({ title: 'Hata', description: 'Bir bağlantı hatası oluştu.', variant: 'destructive' })
     }
     setIsSubmitting(false)
+  }
+
+  const handleEditClick = (member: any) => {
+    setEditingId(member.id)
+    setName(member.name)
+    setEmail(member.email)
+    setRole(member.role)
+    setPassword('') // Şifreyi boş bırakıyoruz (yenazından görünmesin, boşsa da api güncellemeycek)
+    // Kaydırarak forma odaklan
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const cancelEdit = () => {
+    setEditingId(null)
+    setName('')
+    setEmail('')
+    setPassword('')
+    setRole('SATICI')
   }
 
   const handleDelete = async (id: string, userName: string) => {
@@ -102,8 +121,8 @@ export default function EkipYonetimiPage() {
           <Card>
             <CardHeader className="bg-gray-50 border-b pb-4">
               <CardTitle className="text-base flex items-center gap-2">
-                <UserPlus className="h-5 w-5 text-gray-700" />
-                Yeni Üye Ekle
+                {editingId ? <UserCog className="h-5 w-5 text-gray-700" /> : <UserPlus className="h-5 w-5 text-gray-700" />}
+                {editingId ? 'Üye Bilgilerini Düzenle' : 'Yeni Üye Ekle'}
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-4">
@@ -117,14 +136,14 @@ export default function EkipYonetimiPage() {
                   <Input type="email" required value={email} onChange={e => setEmail(e.target.value)} placeholder="ahmet@satis.com" />
                 </div>
                 <div className="space-y-2">
-                  <Label>Sisteme Giriş Şifresi</Label>
+                  <Label>{editingId ? 'Sisteme Giriş Şifresi (Değiştirmek istemiyorsanız boş bırakın)' : 'Sisteme Giriş Şifresi'}</Label>
                   <div className="relative">
                     <Input 
                       type={showPassword ? 'text' : 'password'} 
-                      required 
+                      required={!editingId} 
                       value={password} 
                       onChange={e => setPassword(e.target.value)} 
-                      placeholder="Şifre belirleyin" 
+                      placeholder={editingId ? 'Yeni şifre belirleyin' : 'Şifre belirleyin'} 
                     />
                     <button 
                       type="button" 
@@ -146,9 +165,16 @@ export default function EkipYonetimiPage() {
                     <option value="ADMIN">Ana Yönetici (Tüm raporları ve finansalları görür)</option>
                   </select>
                 </div>
-                <Button type="submit" disabled={isSubmitting} className="w-full bg-blue-600 hover:bg-blue-700">
-                  {isSubmitting ? 'Hesap Oluşturuluyor...' : 'Hesabı Oluştur'}
-                </Button>
+                <div className="flex gap-2">
+                  {editingId && (
+                    <Button type="button" onClick={cancelEdit} variant="outline" className="flex-1">
+                      İptal
+                    </Button>
+                  )}
+                  <Button type="submit" disabled={isSubmitting} className={`flex-[2] ${editingId ? 'bg-green-600 hover:bg-green-700' : 'bg-blue-600 hover:bg-blue-700'} text-white`}>
+                    {isSubmitting ? (editingId ? 'Güncelleniyor...' : 'Hesap Oluşturuluyor...') : (editingId ? 'Değişiklikleri Kaydet' : 'Hesabı Oluştur')}
+                  </Button>
+                </div>
               </form>
             </CardContent>
           </Card>
@@ -185,6 +211,15 @@ export default function EkipYonetimiPage() {
                           {member.role === 'ADMIN' ? 'YÖNETİCİ' : 'SATICI'}
                         </span>
                         
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="text-blue-600 hover:text-blue-800 hover:bg-blue-50 h-8 w-8"
+                          title="Üyeyi Düzenle"
+                          onClick={() => handleEditClick(member)}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
                         <Button 
                           variant="ghost" 
                           size="icon" 

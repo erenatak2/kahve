@@ -103,3 +103,60 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: 'Kullanıcı silinirken bir hata oluştu.' }, { status: 500 })
   }
 }
+
+export async function PUT(req: NextRequest) {
+  const session = await getServerSession(authOptions)
+  const userRole = (session?.user as any)?.role
+
+  if (!session || userRole !== 'ADMIN') {
+    return NextResponse.json({ error: 'Yetkisiz erişim. Sadece ana yöneticiler ekip üyesi güncelleyebilir.' }, { status: 401 })
+  }
+
+  const { id, name, email, password, role } = await req.json()
+
+  if (!id || !name || !email || !role) {
+    return NextResponse.json({ error: 'Eksik bilgi gönderdiniz.' }, { status: 400 })
+  }
+
+  if (role !== 'ADMIN' && role !== 'SATICI') {
+    return NextResponse.json({ error: 'Geçersiz rol türü.' }, { status: 400 })
+  }
+
+  // E-posta çakışmasını kontrol et (Kendi e-postası hariç)
+  const existing = await prisma.user.findFirst({
+    where: {
+      email,
+      id: { not: id }
+    }
+  })
+
+  if (existing) {
+    return NextResponse.json({ error: 'Bu e-posta adresi başka bir kullanıcı tarafından kullanılıyor.' }, { status: 409 })
+  }
+
+  try {
+    let updateData: any = { name, email, role }
+
+    // Eğer şifre girilmişse, şifreyi de güncelle
+    if (password && password.trim() !== '') {
+      const hashedPassword = await bcrypt.hash(password, 10)
+      updateData.password = hashedPassword
+    }
+
+    const updatedUser = await prisma.user.update({
+      where: { id },
+      data: updateData,
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        createdAt: true
+      }
+    })
+    
+    return NextResponse.json(updatedUser, { status: 200 })
+  } catch (error) {
+    return NextResponse.json({ error: 'Kullanıcı güncellenirken bir hata meydana geldi.' }, { status: 500 })
+  }
+}
