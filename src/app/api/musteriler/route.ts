@@ -6,12 +6,19 @@ import bcrypt from 'bcryptjs'
 
 export async function GET() {
   const session = await getServerSession(authOptions)
-  if (!session || (session.user as any).role !== 'ADMIN') {
+  const role = (session?.user as any)?.role
+
+  if (!session || (role !== 'ADMIN' && role !== 'SATICI')) {
     return NextResponse.json({ error: 'Yetkisiz' }, { status: 401 })
   }
 
+  const whereClause: any = { isActive: true }
+  if (role === 'SATICI') {
+    whereClause.salesRepId = (session.user as any).id
+  }
+
   const customers = await prisma.customer.findMany({
-    where: { isActive: true },
+    where: whereClause,
     include: {
       user: { select: { id: true, name: true, email: true, createdAt: true } },
       orders: { select: { id: true, totalAmount: true, status: true, createdAt: true, payments: { select: { amount: true, status: true } } } },
@@ -25,7 +32,9 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)
-  if (!session || (session.user as any).role !== 'ADMIN') {
+  const role = (session?.user as any)?.role
+
+  if (!session || (role !== 'ADMIN' && role !== 'SATICI')) {
     return NextResponse.json({ error: 'Yetkisiz' }, { status: 401 })
   }
 
@@ -46,7 +55,10 @@ export async function POST(req: NextRequest) {
         password: hashedPassword,
         role: 'MUSTERI',
         customer: {
-          create: { phone, address, shippingAddress, city, taxNumber, discountRate: discountRate || 0, notes },
+          create: { 
+            phone, address, shippingAddress, city, taxNumber, discountRate: discountRate || 0, notes,
+            ...(role === 'SATICI' ? { salesRepId: (session.user as any).id } : {})
+          },
         },
       },
       include: { customer: true },

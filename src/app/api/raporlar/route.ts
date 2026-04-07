@@ -3,11 +3,20 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions)
-  if (!session || (session.user as any).role !== 'ADMIN') {
+  const role = (session?.user as any)?.role
+
+  if (!session || (role !== 'ADMIN' && role !== 'SATICI')) {
     return NextResponse.json({ error: 'Yetkisiz' }, { status: 401 })
   }
+
+  const userId = (session.user as any).id
+  const customerFilter: any = role === 'SATICI' ? { salesRepId: userId } : {}
+  const orderFilter: any = role === 'SATICI' ? { customer: { salesRepId: userId } } : {}
 
   const { searchParams } = new URL(req.url)
   const type = searchParams.get('type') || 'genel'
@@ -19,7 +28,7 @@ export async function GET(req: NextRequest) {
       const start = new Date(year, month - 1, 1)
       const end = new Date(year, month, 0, 23, 59, 59)
       const orders = await prisma.order.findMany({
-        where: { status: { not: 'IPTAL' } },
+        where: { status: { not: 'IPTAL' }, ...(orderFilter as any) },
         include: { payments: true },
       })
       // orderDate veya createdAt'e göre filtrele
@@ -39,7 +48,7 @@ export async function GET(req: NextRequest) {
     const yearEnd = new Date(year, 11, 31, 23, 59, 59)
     const orderItems = await prisma.orderItem.findMany({
       include: { product: true, order: true },
-      where: { order: { status: { not: 'IPTAL' } } },
+      where: { order: { status: { not: 'IPTAL' }, ...(orderFilter as any) } },
     })
     // orderDate veya createdAt'e göre filtrele
     const filteredItems = orderItems.filter((item: any) => {
@@ -63,6 +72,7 @@ export async function GET(req: NextRequest) {
     const yearStart = new Date(year, 0, 1)
     const yearEnd = new Date(year, 11, 31, 23, 59, 59)
     const customers = await prisma.customer.findMany({
+      where: (customerFilter as any),
       include: {
         user: { select: { name: true } },
         orders: { where: { status: { not: 'IPTAL' } }, include: { payments: true } },
@@ -86,11 +96,12 @@ export async function GET(req: NextRequest) {
   }
 
   const [totalOrders, totalRevenue, totalCustomers, totalProducts, recentOrders] = await Promise.all([
-    prisma.order.count({ where: { status: { not: 'IPTAL' } } }),
-    prisma.order.aggregate({ where: { status: { not: 'IPTAL' } }, _sum: { totalAmount: true } }),
-    prisma.customer.count({ where: { isActive: true } }),
-    prisma.product.count({ where: { isActive: true } }),
+    prisma.order.count({ where: { status: { not: 'IPTAL' }, ...(orderFilter as any) } }),
+    prisma.order.aggregate({ where: { status: { not: 'IPTAL' }, ...(orderFilter as any) }, _sum: { totalAmount: true } }),
+    prisma.customer.count({ where: { isActive: true, ...(customerFilter as any) } }),
+    prisma.product.count({ where: { isActive: true } }), // Ürünler herkes için aynı
     prisma.order.findMany({
+      where: (orderFilter as any),
       take: 5,
       orderBy: { createdAt: 'desc' },
       include: { customer: { include: { user: { select: { name: true } } } } },
@@ -99,7 +110,7 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({
     totalOrders,
-    totalRevenue: totalRevenue._sum.totalAmount || 0,
+    totalRevenue: (totalRevenue as any)?._sum?.totalAmount || 0,
     totalCustomers,
     totalProducts,
     recentOrders,

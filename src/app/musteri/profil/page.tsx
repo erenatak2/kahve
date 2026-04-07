@@ -16,6 +16,8 @@ export default function ProfilPage() {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [adresLoading, setAdresLoading] = useState(false)
+  const [name, setName] = useState('')
+  const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
   const [address, setAddress] = useState('')
   const [shippingAddress, setShippingAddress] = useState('')
@@ -26,6 +28,10 @@ export default function ProfilPage() {
 
   useEffect(() => {
     fetch('/api/musteri/profil').then(r => r.json()).then(d => {
+      if (d.user) {
+        setName(d.user.name || '')
+        setEmail(d.user.email || '')
+      }
       if (d.phone) setPhone(d.phone)
       if (d.address) setAddress(d.address)
       if (d.shippingAddress) setShippingAddress(d.shippingAddress)
@@ -41,12 +47,13 @@ export default function ProfilPage() {
     const res = await fetch('/api/musteri/profil', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phone, address, shippingAddress: sameAddress ? address : shippingAddress, city, taxNumber }),
+      body: JSON.stringify({ name, email, phone, address, shippingAddress: sameAddress ? address : shippingAddress, city, taxNumber }),
     })
     if (res.ok) {
-      toast({ title: 'Adres bilgileri kaydedildi' })
+      toast({ title: 'Profil bilgileri kaydedildi', description: 'Değişikliklerin görünmesi için sayfayı yenilemeniz veya tekrar giriş yapmanız gerekebilir.' })
     } else {
-      toast({ title: 'Hata', description: 'Kaydedilemedi', variant: 'destructive' })
+      const err = await res.json().catch(() => ({}))
+      toast({ title: 'Hata', description: err.error || 'Kaydedilemedi', variant: 'destructive' })
     }
     setAdresLoading(false)
   }
@@ -107,42 +114,29 @@ export default function ProfilPage() {
             Hesap Bilgileri
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-3">
-          <div>
-            <Label className="text-xs text-gray-500">Ad Soyad</Label>
-            <p className="font-medium">{session?.user?.name}</p>
-          </div>
-          <div>
-            <Label className="text-xs text-gray-500">E-posta</Label>
-            <p className="font-medium">{session?.user?.email}</p>
-          </div>
-          <div className="pt-2 border-t">
-            <Label className="text-xs text-gray-500 mb-1.5 block">TC Kimlik No / Vergi No</Label>
-            <Input
-              placeholder="10 veya 11 haneli numara"
-              value={taxNumber}
-              onChange={e => {
-                const v = e.target.value.replace(/\D/g, '').slice(0, 11)
-                setTaxNumber(v)
-              }}
-              className="h-9 text-sm"
-            />
-            <p className="text-[11px] text-gray-400 mt-1">Fatura kesmek için gereklidir. Vergi No: 10 hane, TC Kimlik: 11 hane</p>
-            <Button 
-              size="sm" 
-              className="mt-2 w-full" 
-              onClick={async () => {
-                const res = await fetch('/api/musteri/profil', {
-                  method: 'PUT',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ phone, address, shippingAddress: sameAddress ? address : shippingAddress, city, taxNumber }),
-                })
-                if (res.ok) toast({ title: 'TC Kimlik/Vergi No kaydedildi' })
-                else toast({ title: 'Hata', description: 'Kaydedilemedi', variant: 'destructive' })
-              }}
-            >
-              Kaydet
-            </Button>
+        <CardContent>
+          <div className="space-y-3">
+            <div className="space-y-2">
+              <Label>Ad Soyad</Label>
+              <Input value={name} onChange={e => setName(e.target.value)} required />
+            </div>
+            <div className="space-y-2">
+              <Label>E-posta</Label>
+              <Input type="email" value={email} onChange={e => setEmail(e.target.value)} required />
+            </div>
+            <div className="pt-2">
+              <Label className="text-xs text-gray-500 mb-1.5 block">TC Kimlik No / Vergi No</Label>
+              <Input
+                placeholder="10 veya 11 haneli numara"
+                value={taxNumber}
+                onChange={e => {
+                  const v = e.target.value.replace(/\D/g, '').slice(0, 11)
+                  setTaxNumber(v)
+                }}
+                className="h-9 text-sm"
+              />
+              <p className="text-[11px] text-gray-400 mt-1">Fatura kesmek için gereklidir. Vergi No: 10 hane, TC Kimlik: 11 hane</p>
+            </div>
           </div>
         </CardContent>
       </Card>

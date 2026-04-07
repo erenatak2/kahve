@@ -22,12 +22,30 @@ export async function PUT(req: NextRequest) {
   if (!session) return NextResponse.json({ error: 'Yetkisiz' }, { status: 401 })
 
   const customerId = (session.user as any).customerId
-  const { phone, address, shippingAddress, city, taxNumber } = await req.json()
+  const userId = (session.user as any).id
+  const { name, email, phone, address, shippingAddress, city, taxNumber } = await req.json()
 
-  const customer = await prisma.customer.update({
-    where: { id: customerId },
-    data: { phone, address, shippingAddress, city, taxNumber },
-  })
+  // E-posta çakışması kontrolü
+  if (email) {
+    const existing = await prisma.user.findFirst({
+      where: { email, NOT: { id: userId } }
+    })
+    if (existing) {
+      return NextResponse.json({ error: 'Bu e-posta adresi zaten kullanımda' }, { status: 400 })
+    }
+  }
 
-  return NextResponse.json(customer)
+  // Transaction ile hem user'ı hem customer'ı güncelle
+  const [user, customer] = await prisma.$transaction([
+    prisma.user.update({
+      where: { id: userId },
+      data: { ...(name ? { name } : {}), ...(email ? { email } : {}) }
+    }),
+    prisma.customer.update({
+      where: { id: customerId },
+      data: { phone, address, shippingAddress, city, taxNumber },
+    })
+  ])
+
+  return NextResponse.json({ ...customer, user })
 }

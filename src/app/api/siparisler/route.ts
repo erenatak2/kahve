@@ -3,6 +3,9 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions)
   if (!session) return NextResponse.json({ error: 'Yetkisiz' }, { status: 401 })
@@ -26,12 +29,15 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  const where = role === 'MUSTERI'
-    ? { customerId }
-    : { 
-        ...(filterCustomerId ? { customerId: filterCustomerId } : {}), 
-        ...dateFilter 
-      }
+  let where: any = { ...dateFilter }
+  if (role === 'MUSTERI') {
+    where.customerId = customerId
+  } else if (role === 'SATICI') {
+    where.customer = { salesRepId: (session.user as any).id }
+    if (filterCustomerId) where.customerId = filterCustomerId
+  } else {
+    if (filterCustomerId) where.customerId = filterCustomerId
+  }
 
   const orders = await prisma.order.findMany({
     where,
@@ -56,6 +62,7 @@ export async function POST(req: NextRequest) {
   const body = await req.json()
   const { customerId: bodyCustomerId, items, notes, billingAddress, shippingAddress, paymentMethod } = body
 
+  // Müşteri kendi sipariş veriyorsa session'dan, yoksa request'ten al (Admin/Satıcı)
   const customerId = role === 'MUSTERI' ? sessionCustomerId : bodyCustomerId
 
   const customerPrices = await prisma.customerPrice.findMany({ where: { customerId } })

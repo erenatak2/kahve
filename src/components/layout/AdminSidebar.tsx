@@ -20,6 +20,7 @@ import {
   FileText,
   Bell,
   Volume2,
+  ShieldAlert,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
@@ -39,6 +40,7 @@ const navItems: NavItem[] = [
   { href: '/admin/odeme-bildirimler', label: 'Ödeme Bildirimleri', icon: Bell, badgeKey: 'notifications' },
   { href: '/admin/cari-hesaplar', label: 'Cari Hesaplar', icon: FileText },
   { href: '/admin/raporlar', label: 'Raporlar', icon: BarChart3 },
+  { href: '/admin/ekip', label: 'Ekip Yönetimi', icon: ShieldAlert },
   { href: '/admin/cop-kutusu', label: 'Çöp Kutusu', icon: Trash2 },
   { href: '/admin/profil', label: 'Profil Ayarları', icon: User },
 ]
@@ -90,7 +92,7 @@ const playNotificationSound = () => {
   }
 }
 
-export function AdminSidebar({ user, onClose }: { user: { name?: string; email?: string }; onClose?: () => void }) {
+export function AdminSidebar({ user, onClose }: { user: { name?: string; email?: string; role?: string }; onClose?: () => void }) {
   const pathname = usePathname()
   const [counts, setCounts] = useState<BadgeCounts>({ orders: 0, notifications: 0 })
   const [seenCounts, setSeenCounts] = useState<BadgeCounts>({ orders: 0, notifications: 0 })
@@ -213,7 +215,7 @@ export function AdminSidebar({ user, onClose }: { user: { name?: string; email?:
             </div>
             <div>
               <h1 className="font-bold text-gray-900 text-sm">Satış Yönetim</h1>
-              <p className="text-xs text-gray-500">Admin Paneli</p>
+              <p className="text-xs text-gray-500">{user?.role === 'SATICI' ? 'Satış Temsilcisi' : 'Admin Paneli'}</p>
             </div>
           </div>
           {onClose && (
@@ -225,7 +227,12 @@ export function AdminSidebar({ user, onClose }: { user: { name?: string; email?:
       </div>
 
       <nav className="flex-1 p-4 space-y-1">
-        {navItems.map((item) => {
+        {navItems.filter(item => {
+          if (user?.role === 'SATICI') {
+            return ['/admin', '/admin/urunler', '/admin/musteriler', '/admin/siparisler', '/admin/profil'].includes(item.href)
+          }
+          return true
+        }).map((item) => {
           const Icon = item.icon
           const isActive = pathname === item.href
           const badgeCount = item.badgeKey ? Math.max(0, counts[item.badgeKey] - seenCounts[item.badgeKey]) : 0

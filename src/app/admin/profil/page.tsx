@@ -11,11 +11,32 @@ import { KeyRound, User, Shuffle } from 'lucide-react'
 
 export default function AdminProfilPage() {
   const { data: session } = useSession()
+  const [name, setName] = useState(session?.user?.name || '')
+  const [email, setEmail] = useState(session?.user?.email || '')
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [loading, setLoading] = useState(false)
+  const [profileLoading, setProfileLoading] = useState(false)
   const { toast } = useToast()
+
+  const handleProfileUpdate = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setProfileLoading(true)
+    const res = await fetch('/api/admin/profil', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, email }),
+    })
+
+    if (res.ok) {
+      toast({ title: 'Profil güncellendi', description: 'Değişikliklerin her yerde görünmesi için tekrar giriş yapmanız gerekebilir.' })
+    } else {
+      const err = await res.json().catch(() => ({}))
+      toast({ title: 'Hata', description: err.error || 'Profil güncellenemedi', variant: 'destructive' })
+    }
+    setProfileLoading(false)
+  }
 
   const generateRandomPassword = () => {
     const length = 12
@@ -74,23 +95,22 @@ export default function AdminProfilPage() {
               Hesap Bilgileri
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
-            <div>
-              <Label className="text-xs text-gray-500">Ad Soyad</Label>
-              <p className="font-medium">{session?.user?.name}</p>
-            </div>
-            <div>
-              <Label className="text-xs text-gray-500">E-posta</Label>
-              <p className="font-medium">{session?.user?.email}</p>
-            </div>
-            <div>
-              <Label className="text-xs text-gray-500">Rol</Label>
-              <p className="font-medium">
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                  Yönetici
-                </span>
-              </p>
-            </div>
+          <CardContent>
+            <form onSubmit={handleProfileUpdate} className="space-y-4">
+              <div className="space-y-2">
+                <Label>Ad Soyad</Label>
+                <Input value={name} onChange={e => setName(e.target.value)} required />
+              </div>
+              <div className="space-y-2">
+                <Label>E-posta</Label>
+                <Input type="email" value={email} onChange={e => setEmail(e.target.value)} required />
+              </div>
+              <div className="pt-2">
+                <Button type="submit" disabled={profileLoading}>
+                  {profileLoading ? 'Kaydediliyor...' : 'Bilgileri Kaydet'}
+                </Button>
+              </div>
+            </form>
           </CardContent>
         </Card>
 

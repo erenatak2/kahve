@@ -17,6 +17,7 @@ model User {
   updatedAt DateTime @updatedAt
 
   customer  Customer?
+  sellerCustomers Customer[] @relation("SalesRepToCustomer")
   accounts  Account[]
   sessions  Session[]
 }
@@ -57,12 +58,14 @@ model Customer {
   city            String?
   taxNumber       String?
   discountRate    Float    @default(0)
+  salesRepId      String?  // Satış Temsilcisi (Plasiyer) bağlantısı
   notes           String?
   isActive        Boolean  @default(true)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
   user                 User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  salesRep             User?                 @relation("SalesRepToCustomer", fields: [salesRepId], references: [id])
   orders               Order[]
   customerPrices       CustomerPrice[]
   paymentNotifications PaymentNotification[]

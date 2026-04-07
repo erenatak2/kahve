@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { AdminSidebar } from './AdminSidebar'
 import { Menu, ShoppingBag } from 'lucide-react'
 
-export function AdminShell({ user, children }: { user: { name?: string; email?: string }; children: React.ReactNode }) {
+export function AdminShell({ user, children }: { user: { name?: string; email?: string; role?: string }; children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   return (

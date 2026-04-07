@@ -6,7 +6,8 @@ import { AdminLoginForm } from '@/components/auth/AdminLoginForm'
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const session = await getServerSession(authOptions)
   
-  if (!session || (session.user as any).role !== 'ADMIN') {
+  const role = (session?.user as any)?.role
+  if (!session || (role !== 'ADMIN' && role !== 'SATICI')) {
     return <AdminLoginForm />
   }
 
