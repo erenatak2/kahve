@@ -59,7 +59,7 @@ export function MusteriNavbar({ user, onClose }: { user: { name?: string; email?
               <ShoppingBag className="h-5 w-5" />
             </div>
             <div>
-              <h1 className="font-bold text-gray-900 text-sm">Satış Yönetim</h1>
+              <h1 className="font-bold text-gray-900 text-sm">Sipariş Portalı</h1>
               <p className="text-xs text-gray-500">Müşteri Paneli</p>
             </div>
           </div>

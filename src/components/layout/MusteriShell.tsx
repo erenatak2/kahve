@@ -40,7 +40,7 @@ export function MusteriShell({ user, children }: { user: { name?: string; email?
             <div className="bg-emerald-600 text-white p-1.5 rounded-lg">
               <ShoppingBag className="h-4 w-4" />
             </div>
-            <span className="font-bold text-gray-900 text-sm">Satış Yönetim</span>
+            <span className="font-bold text-gray-900 text-sm">Sipariş Portalı</span>
           </div>
         </div>
 
