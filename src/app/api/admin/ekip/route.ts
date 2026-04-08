@@ -52,12 +52,46 @@ export async function GET() {
       where: { salesRepId: member.id, isActive: true }
     })
 
+    // Detaylı müşteri ve sipariş listesini bul
+    const customers = await prisma.customer.findMany({
+      where: { salesRepId: member.id, isActive: true },
+      select: {
+        id: true,
+        user: { select: { name: true } },
+        orders: {
+          where: { status: { not: 'IPTAL' } },
+          select: { totalAmount: true }
+        }
+      }
+    })
+
+    const customerDetails = customers.map(c => ({
+      id: c.id,
+      name: c.user.name,
+      totalSales: c.orders.reduce((sum, o) => sum + o.totalAmount, 0),
+      orderCount: c.orders.length
+    })).sort((a, b) => b.totalSales - a.totalSales)
+
+    const recentOrders = await prisma.order.findMany({
+      where: {
+        status: { not: 'IPTAL' },
+        customer: { salesRepId: member.id }
+      },
+      take: 5,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        customer: { include: { user: { select: { name: true } } } }
+      }
+    })
+
     return {
       ...member,
       stats: {
         totalSales,
         orderCount,
-        customerCount
+        customerCount,
+        customerDetails,
+        recentOrders
       }
     }
   }))
