@@ -21,12 +21,48 @@ export async function GET() {
       name: true,
       email: true,
       role: true,
-      createdAt: true
+      createdAt: true,
+      customer: {
+        select: {
+          id: true,
+          salesRepId: true,
+          user: { select: { name: true } }
+        }
+      }
     },
     orderBy: { createdAt: 'desc' }
   })
 
-  return NextResponse.json(team)
+  // Her üye için satış verilerini hesapla
+  const teamWithStats = await Promise.all(team.map(async (member) => {
+    // Toplam sattığı tutar ve sipariş sayısını bul
+    const orders = await prisma.order.findMany({
+      where: {
+        status: { not: 'IPTAL' },
+        customer: { salesRepId: member.id }
+      },
+      select: { totalAmount: true }
+    })
+
+    const totalSales = orders.reduce((sum, o) => sum + o.totalAmount, 0)
+    const orderCount = orders.length
+
+    // Atanmış müşteri sayısını bul
+    const customerCount = await prisma.customer.count({
+      where: { salesRepId: member.id, isActive: true }
+    })
+
+    return {
+      ...member,
+      stats: {
+        totalSales,
+        orderCount,
+        customerCount
+      }
+    }
+  }))
+
+  return NextResponse.json(teamWithStats)
 }
 
 export async function POST(req: NextRequest) {

@@ -6,8 +6,9 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/components/ui/use-toast'
-import { Users, UserPlus, Eye, EyeOff, Trash2, ShieldCheck, User, Edit, UserCog } from 'lucide-react'
+import { Users, UserPlus, Eye, EyeOff, Trash2, ShieldCheck, User, Edit, UserCog, TrendingUp, ShoppingBag, UserCheck } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import { formatCurrency } from '@/lib/utils'
 
 export default function EkipYonetimiPage() {
   const [team, setTeam] = useState<any[]>([])
@@ -198,41 +199,59 @@ export default function EkipYonetimiPage() {
               ) : (
                 <div className="divide-y">
                   {team.map((member) => (
-                    <div key={member.id} className="p-4 flex items-center justify-between hover:bg-gray-50 transition-colors">
-                      <div className="flex items-center gap-4">
-                        <div className={`p-2 rounded-full ${member.role === 'ADMIN' ? 'bg-purple-100' : 'bg-blue-100'}`}>
-                          {member.role === 'ADMIN' ? <ShieldCheck className="h-5 w-5 text-purple-700" /> : <User className="h-5 w-5 text-blue-700" />}
+                    <div key={member.id} className="p-4 hover:bg-gray-50 transition-colors">
+                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div className="flex items-center gap-4">
+                          <div className={`p-2 rounded-full ${member.role === 'ADMIN' ? 'bg-purple-100' : 'bg-blue-100'}`}>
+                            {member.role === 'ADMIN' ? <ShieldCheck className="h-5 w-5 text-purple-700" /> : <User className="h-5 w-5 text-blue-700" />}
+                          </div>
+                          <div>
+                            <p className="font-semibold text-gray-900">{member.name}</p>
+                            <p className="text-sm text-gray-500">{member.email}</p>
+                          </div>
+                          <span className={`px-2.5 py-1 text-[10px] font-bold rounded-full ${
+                            member.role === 'ADMIN' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'
+                          }`}>
+                            {member.role === 'ADMIN' ? 'YÖNETİCİ' : 'SATICI'}
+                          </span>
                         </div>
-                        <div>
-                          <p className="font-semibold text-gray-900">{member.name}</p>
-                          <p className="text-sm text-gray-500">{member.email}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-4">
-                        <span className={`px-2.5 py-1 text-xs font-semibold rounded-full ${
-                          member.role === 'ADMIN' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'
-                        }`}>
-                          {member.role === 'ADMIN' ? 'YÖNETİCİ' : 'SATICI'}
-                        </span>
                         
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="text-blue-600 hover:text-blue-800 hover:bg-blue-50 h-8 w-8"
-                          title="Üyeyi Düzenle"
-                          onClick={() => handleEditClick(member)}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="text-red-500 hover:text-red-700 hover:bg-red-50 h-8 w-8"
-                          title="Hesabı Sil"
-                          onClick={() => handleDelete(member.id, member.name)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        {/* Satış İstatistikleri */}
+                        <div className="flex items-center gap-6 bg-white p-2 px-4 rounded-xl border border-gray-100 shadow-sm">
+                          <div className="text-center">
+                            <p className="text-[10px] text-gray-400 uppercase font-bold">Ciro</p>
+                            <p className="text-sm font-bold text-green-600">{formatCurrency(member.stats?.totalSales || 0)}</p>
+                          </div>
+                          <div className="text-center border-x px-6 border-gray-100">
+                            <p className="text-[10px] text-gray-400 uppercase font-bold">Sipariş</p>
+                            <p className="text-sm font-bold text-gray-700">{member.stats?.orderCount || 0}</p>
+                          </div>
+                          <div className="text-center">
+                            <p className="text-[10px] text-gray-400 uppercase font-bold">Müşteri</p>
+                            <p className="text-sm font-bold text-blue-600">{member.stats?.customerCount || 0}</p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 justify-end">
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="text-blue-600 hover:text-blue-800 hover:bg-blue-50 h-9 w-9"
+                            title="Üyeyi Düzenle"
+                            onClick={() => handleEditClick(member)}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="text-red-500 hover:text-red-700 hover:bg-red-50 h-9 w-9"
+                            title="Hesabı Sil"
+                            onClick={() => handleDelete(member.id, member.name)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   ))}
