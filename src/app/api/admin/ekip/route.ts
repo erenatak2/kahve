@@ -77,12 +77,38 @@ export async function GET() {
         status: { not: 'IPTAL' },
         customer: { salesRepId: member.id }
       },
-      take: 5,
+      take: 10,
       orderBy: { createdAt: 'desc' },
       include: {
-        customer: { include: { user: { select: { name: true } } } }
+        customer: { include: { user: { select: { name: true } } } },
+        orderItems: { include: { product: { select: { name: true } } } }
       }
     })
+
+    // Ürün bazlı satış toplamlarını hesapla
+    const productStatsMap: any = {}
+    const memberOrders = await prisma.order.findMany({
+      where: {
+        status: { not: 'IPTAL' },
+        customer: { salesRepId: member.id }
+      },
+      include: {
+        orderItems: { include: { product: { select: { name: true } } } }
+      }
+    })
+
+    memberOrders.forEach(order => {
+      order.orderItems.forEach(item => {
+        const pName = item.product.name
+        if (!productStatsMap[pName]) {
+          productStatsMap[pName] = { name: pName, quantity: 0, total: 0 }
+        }
+        productStatsMap[pName].quantity += item.quantity
+        productStatsMap[pName].total += item.total
+      })
+    })
+
+    const productDetails = Object.values(productStatsMap).sort((a: any, b: any) => b.total - a.total)
 
     return {
       ...member,
@@ -91,7 +117,8 @@ export async function GET() {
         orderCount,
         customerCount,
         customerDetails,
-        recentOrders
+        recentOrders,
+        productDetails
       }
     }
   }))

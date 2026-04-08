@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/components/ui/use-toast'
-import { Users, UserPlus, Eye, EyeOff, Trash2, ShieldCheck, User, Edit, UserCog, TrendingUp, ShoppingBag, UserCheck, ChevronDown, ChevronUp, Clock, Target } from 'lucide-react'
+import { Users, UserPlus, Eye, EyeOff, Trash2, ShieldCheck, User, Edit, UserCog, TrendingUp, ShoppingBag, UserCheck, ChevronDown, ChevronUp, Clock, Target, Package, ListChecks } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { formatCurrency, formatDate, ORDER_STATUS_COLOR, ORDER_STATUS } from '@/lib/utils'
 
@@ -263,58 +263,93 @@ export default function EkipYonetimiPage() {
 
                       {/* Detay Paneli (Expandable) */}
                       {expandedId === member.id && (
-                        <div className="bg-gray-50/50 p-4 grid grid-cols-1 md:grid-cols-2 gap-4 animate-in slide-in-from-top-2 duration-200">
-                          {/* Top Müşteriler */}
-                          <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
-                            <h3 className="text-xs font-bold text-gray-400 uppercase flex items-center gap-2 mb-4">
-                              <Target className="h-4 w-4 text-blue-500" />
-                              Portföy Verimliliği (Top 5 Müşteri)
-                            </h3>
-                            <div className="space-y-3">
-                              {member.stats?.customerDetails?.length === 0 ? (
-                                <p className="text-xs text-gray-500 italic">Henüz atanmış müşteri yok.</p>
-                              ) : (
-                                member.stats.customerDetails.slice(0, 5).map((cust: any) => (
-                                  <div key={cust.id} className="flex items-center justify-between group">
-                                    <span className="text-sm font-medium text-gray-700">{cust.name}</span>
-                                    <div className="flex items-center gap-3">
-                                      <span className="text-xs text-gray-400">{cust.orderCount} Sipariş</span>
-                                      <span className="text-sm font-bold text-gray-900 group-hover:text-green-600 transition-colors">
-                                        {formatCurrency(cust.totalSales)}
-                                      </span>
+                        <div className="bg-gray-50/50 p-4 space-y-4 animate-in slide-in-from-top-2 duration-200 border-t">
+                          
+                          {/* İstatistik Özet Kartları */}
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            
+                            {/* Top Müşteriler */}
+                            <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm flex flex-col">
+                              <h3 className="text-xs font-bold text-gray-400 uppercase flex items-center gap-2 mb-4">
+                                <Target className="h-4 w-4 text-blue-500" />
+                                Portfolio (Top Müşteriler)
+                              </h3>
+                              <div className="space-y-3 flex-1">
+                                {member.stats?.customerDetails?.length === 0 ? (
+                                  <p className="text-xs text-gray-500 italic py-4">Henüz atanmış müşteri yok.</p>
+                                ) : (
+                                  member.stats.customerDetails.slice(0, 8).map((cust: any) => (
+                                    <div key={cust.id} className="flex items-center justify-between group">
+                                      <span className="text-sm font-medium text-gray-700 truncate mr-2" title={cust.name}>{cust.name}</span>
+                                      <div className="flex items-center gap-3 shrink-0">
+                                        <span className="text-[10px] text-gray-400">{cust.orderCount} Sip.</span>
+                                        <span className="text-sm font-bold text-gray-900">
+                                          {formatCurrency(cust.totalSales)}
+                                        </span>
+                                      </div>
                                     </div>
-                                  </div>
-                                ))
-                              )}
+                                  ))
+                                )}
+                              </div>
                             </div>
-                          </div>
 
-                          {/* Son Aktiviteler */}
-                          <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
-                            <h3 className="text-xs font-bold text-gray-400 uppercase flex items-center gap-2 mb-4">
-                              <Clock className="h-4 w-4 text-orange-500" />
-                              Son İşlemler
-                            </h3>
-                            <div className="space-y-3">
-                              {member.stats?.recentOrders?.length === 0 ? (
-                                <p className="text-xs text-gray-500 italic">Henüz işlem yok.</p>
-                              ) : (
-                                member.stats.recentOrders.map((order: any) => (
-                                  <div key={order.id} className="flex items-center justify-between text-xs">
-                                    <div className="min-w-0 flex-1">
-                                      <p className="font-semibold text-gray-800 truncate">{order.customer?.user?.name}</p>
-                                      <p className="text-[10px] text-gray-400">{formatDate(order.createdAt)}</p>
+                            {/* Ürün Bazlı Performans */}
+                            <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm flex flex-col">
+                              <h3 className="text-xs font-bold text-gray-400 uppercase flex items-center gap-2 mb-4">
+                                <Package className="h-4 w-4 text-emerald-500" />
+                                Neler Sattı? (Ürün Bazlı)
+                              </h3>
+                              <div className="space-y-3 flex-1">
+                                {member.stats?.productDetails?.length === 0 ? (
+                                  <p className="text-xs text-gray-500 italic py-4">Henüz satış yapılmadı.</p>
+                                ) : (
+                                  member.stats.productDetails.slice(0, 8).map((prod: any, idx: number) => (
+                                    <div key={idx} className="flex items-center justify-between">
+                                      <span className="text-sm font-medium text-gray-700 truncate mr-2" title={prod.name}>{prod.name}</span>
+                                      <div className="flex items-center gap-3 shrink-0">
+                                        <span className="text-[10px] bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">{prod.quantity} Ad.</span>
+                                        <span className="text-sm font-bold text-emerald-600">
+                                          {formatCurrency(prod.total)}
+                                        </span>
+                                      </div>
                                     </div>
-                                    <div className="text-right ml-4">
-                                      <p className="font-bold text-gray-900">{formatCurrency(order.totalAmount)}</p>
-                                      <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-bold ${ORDER_STATUS_COLOR[order.status]}`}>
-                                        {ORDER_STATUS[order.status]}
-                                      </span>
-                                    </div>
-                                  </div>
-                                ))
-                              )}
+                                  ))
+                                )}
+                              </div>
                             </div>
+
+                            {/* Son İşlemler Detaylı */}
+                            <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm flex flex-col">
+                              <h3 className="text-xs font-bold text-gray-400 uppercase flex items-center gap-2 mb-4">
+                                <Clock className="h-4 w-4 text-orange-500" />
+                                Son Siparişler ve İçerikleri
+                              </h3>
+                              <div className="space-y-4 flex-1 overflow-auto max-h-[300px] pr-1 custom-scrollbar">
+                                {member.stats?.recentOrders?.length === 0 ? (
+                                  <p className="text-xs text-gray-500 italic py-4">Henüz işlem yok.</p>
+                                ) : (
+                                  member.stats.recentOrders.map((order: any) => (
+                                    <div key={order.id} className="border-b border-gray-50 pb-3 last:border-0">
+                                      <div className="flex items-center justify-between mb-1">
+                                        <p className="text-sm font-bold text-gray-800 truncate">{order.customer?.user?.name}</p>
+                                        <span className="text-[10px] text-gray-400 font-medium">{formatDate(order.createdAt)}</span>
+                                      </div>
+                                      <div className="flex items-center justify-between">
+                                        <div className="flex flex-wrap gap-1">
+                                          {order.orderItems?.map((item: any, idx: number) => (
+                                            <span key={idx} className="bg-gray-100 text-[9px] text-gray-600 px-1.5 py-0.5 rounded">
+                                              {item.quantity}x {item.product.name.split(' ')[0]}...
+                                            </span>
+                                          ))}
+                                        </div>
+                                        <p className="font-bold text-xs text-blue-600 ml-2">{formatCurrency(order.totalAmount)}</p>
+                                      </div>
+                                    </div>
+                                  ))
+                                )}
+                              </div>
+                            </div>
+
                           </div>
                         </div>
                       )}
