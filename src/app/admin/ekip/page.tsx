@@ -6,10 +6,11 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/components/ui/use-toast'
-import { Users, UserPlus, Eye, EyeOff, Trash2, ShieldCheck, User, Edit, UserCog, TrendingUp, ShoppingBag, UserCheck, ChevronDown, ChevronUp, Clock, Target, Package, ListChecks, Maximize2, X } from 'lucide-react'
+import { Users, UserPlus, Eye, EyeOff, Trash2, ShieldCheck, User, Edit, UserCog, TrendingUp, ShoppingBag, UserCheck, ChevronDown, ChevronUp, Clock, Target, Package, ListChecks, ArrowRight } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { formatCurrency, formatDate, ORDER_STATUS_COLOR, ORDER_STATUS } from '@/lib/utils'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 
 export default function EkipYonetimiPage() {
   const [team, setTeam] = useState<any[]>([])
@@ -19,7 +20,8 @@ export default function EkipYonetimiPage() {
   const [password, setPassword] = useState('')
   const [role, setRole] = useState('SATICI')
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [viewingMember, setViewingMember] = useState<any | null>(null)
+  const [selectedMember, setSelectedMember] = useState<any>(null)
+  const [showActivityDialog, setShowActivityDialog] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
@@ -211,6 +213,11 @@ export default function EkipYonetimiPage() {
                             <p className="font-semibold text-gray-900">{member.name}</p>
                             <p className="text-sm text-gray-500">{member.email}</p>
                           </div>
+                          <span className={`px-2.5 py-1 text-[10px] font-bold rounded-full ${
+                            member.role === 'ADMIN' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'
+                          }`}>
+                            {member.role === 'ADMIN' ? 'YÖNETİCİ' : 'SATICI'}
+                          </span>
                         </div>
                         
                         {/* Satış İstatistikleri */}
@@ -232,17 +239,17 @@ export default function EkipYonetimiPage() {
                         <div className="flex items-center gap-2 justify-end">
                           <Button 
                             variant="outline" 
-                            size="sm"
-                            className="text-blue-600 border-blue-100 hover:bg-blue-50 gap-2 h-9"
-                            onClick={() => setViewingMember(member)}
+                            size="sm" 
+                            className="gap-2 h-9 border-blue-200 text-blue-700 hover:bg-blue-50"
+                            onClick={() => { setSelectedMember(member); setShowActivityDialog(true); }}
                           >
-                            <Maximize2 className="h-4 w-4" />
-                            İncele
+                            <Eye className="h-4 w-4" />
+                            Aktivite İzle
                           </Button>
                           <Button 
                             variant="ghost" 
                             size="icon" 
-                            className="text-blue-600 hover:text-blue-800 hover:bg-blue-50 h-9 w-9"
+                            className="text-gray-400 hover:text-blue-600 hover:bg-blue-50 h-9 w-9"
                             title="Üyeyi Düzenle"
                             onClick={() => handleEditClick(member)}
                           >
@@ -251,7 +258,7 @@ export default function EkipYonetimiPage() {
                           <Button 
                             variant="ghost" 
                             size="icon" 
-                            className="text-red-500 hover:text-red-700 hover:bg-red-50 h-9 w-9"
+                            className="text-gray-400 hover:text-red-600 hover:bg-red-50 h-9 w-9"
                             title="Hesabı Sil"
                             onClick={() => handleDelete(member.id, member.name)}
                           >
@@ -261,169 +268,166 @@ export default function EkipYonetimiPage() {
                       </div>
                     </div>
                   ))}
-
-      {/* Detay Paneli (Modal) */}
-      <Dialog open={!!viewingMember} onOpenChange={() => setViewingMember(null)}>
-        <DialogContent className="max-w-6xl h-[90vh] overflow-hidden flex flex-col p-0 bg-gray-50">
-          <DialogHeader className="p-6 bg-white border-b shrink-0">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className={`p-3 rounded-2xl ${viewingMember?.role === 'ADMIN' ? 'bg-purple-100' : 'bg-blue-100'}`}>
-                  {viewingMember?.role === 'ADMIN' ? <ShieldCheck className="h-7 w-7 text-purple-700" /> : <User className="h-7 w-7 text-blue-700" />}
-                </div>
-                <div>
-                  <DialogTitle className="text-2xl font-bold text-gray-900">{viewingMember?.name}</DialogTitle>
-                  <p className="text-gray-500 font-medium">{viewingMember?.email} • <span className={viewingMember?.role === 'ADMIN' ? 'text-purple-600' : 'text-blue-600'}>{viewingMember?.role === 'ADMIN' ? 'Yönetici' : 'Satış Temsilcisi'}</span></p>
-                </div>
-              </div>
-              <div className="flex gap-4">
-                <div className="bg-white border p-3 px-6 rounded-2xl shadow-sm text-center">
-                  <p className="text-[10px] text-gray-400 font-bold uppercase mb-1">Toplam Ciro</p>
-                  <p className="text-xl font-black text-green-600">{formatCurrency(viewingMember?.stats?.totalSales || 0)}</p>
-                </div>
-                <div className="bg-white border p-3 px-6 rounded-2xl shadow-sm text-center">
-                  <p className="text-[10px] text-gray-400 font-bold uppercase mb-1">Müşteri Sayısı</p>
-                  <p className="text-xl font-black text-blue-600">{viewingMember?.stats?.customerCount || 0}</p>
-                </div>
-              </div>
-            </div>
-          </DialogHeader>
-
-          <div className="flex-1 overflow-auto p-6 space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              
-              {/* Sol Sütun: Portföy Değerleri */}
-              <div className="lg:col-span-1 space-y-6">
-                <Card className="border-none shadow-sm rounded-2xl overflow-hidden">
-                  <CardHeader className="bg-white border-b py-4">
-                    <CardTitle className="text-sm font-bold flex items-center gap-2">
-                      <Target className="h-4 w-4 text-blue-500" />
-                      En Değerli Müşterileri
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-0">
-                    <div className="divide-y">
-                      {viewingMember?.stats?.customerDetails?.length === 0 ? (
-                        <p className="p-8 text-center text-sm text-gray-500 italic">Atanmış müşteri bulunamadı.</p>
-                      ) : (
-                        viewingMember?.stats?.customerDetails.map((cust: any) => (
-                          <div key={cust.id} className="p-4 flex items-center justify-between hover:bg-gray-50 transition-colors">
-                            <span className="font-semibold text-gray-700">{cust.name}</span>
-                            <div className="text-right">
-                              <p className="text-sm font-bold text-gray-900">{formatCurrency(cust.totalSales)}</p>
-                              <p className="text-[10px] text-gray-400 uppercase font-medium">{cust.orderCount} Sipariş</p>
-                            </div>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card className="border-none shadow-sm rounded-2xl overflow-hidden">
-                  <CardHeader className="bg-white border-b py-4">
-                    <CardTitle className="text-sm font-bold flex items-center gap-2">
-                      <Package className="h-4 w-4 text-emerald-500" />
-                      Ürün Satış Performansı
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-4">
-                    <div className="space-y-4">
-                      {viewingMember?.stats?.productDetails?.length === 0 ? (
-                        <p className="text-center text-sm text-gray-500 italic py-4">Satış verisi yok.</p>
-                      ) : (
-                        viewingMember?.stats?.productDetails.map((prod: any, idx: number) => (
-                          <div key={idx} className="space-y-1">
-                            <div className="flex justify-between text-sm mb-1">
-                              <span className="text-gray-600 font-medium truncate pr-4">{prod.name}</span>
-                              <span className="font-bold text-gray-900">{prod.quantity} Adet</span>
-                            </div>
-                            <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
-                              <div 
-                                className="h-full bg-emerald-500 rounded-full" 
-                                style={{ width: `${(prod.total / (viewingMember?.stats?.totalSales || 1)) * 100}%` }}
-                              />
-                            </div>
-                            <p className="text-right text-[10px] text-emerald-600 font-bold">{formatCurrency(prod.total)}</p>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-
-              {/* Sağ Sütun: İşlem Geçmişi */}
-              <div className="lg:col-span-2">
-                <Card className="border-none shadow-sm rounded-2xl overflow-hidden h-full flex flex-col">
-                  <CardHeader className="bg-white border-b py-4">
-                    <CardTitle className="text-sm font-bold flex items-center gap-2">
-                      <Clock className="h-4 w-4 text-orange-500" />
-                      Sistem İşlem Geçmişi (Son 15 Sipariş)
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-0 flex-1">
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left border-collapse">
-                        <thead>
-                          <tr className="bg-gray-50 text-[10px] text-gray-400 font-bold uppercase tracking-wider">
-                            <th className="px-6 py-4 border-b">Tarih</th>
-                            <th className="px-6 py-4 border-b">Müşteri</th>
-                            <th className="px-6 py-4 border-b">İçerik</th>
-                            <th className="px-6 py-4 border-b">Durum</th>
-                            <th className="px-6 py-4 border-b text-right">Tutar</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y">
-                          {viewingMember?.stats?.recentOrders?.length === 0 ? (
-                            <tr><td colSpan={5} className="p-12 text-center text-sm text-gray-500 italic">Henüz bir işlem gerçekleştirilmedi.</td></tr>
-                          ) : (
-                            viewingMember?.stats?.recentOrders.map((order: any) => (
-                              <tr key={order.id} className="hover:bg-gray-50 transition-colors group">
-                                <td className="px-6 py-4 text-xs font-medium text-gray-500">{formatDate(order.createdAt)}</td>
-                                <td className="px-6 py-4">
-                                  <p className="text-sm font-bold text-gray-900 leading-none">{order.customer?.user?.name}</p>
-                                  <p className="text-[10px] text-gray-400 mt-1">{order.id.slice(-8).toUpperCase()}</p>
-                                </td>
-                                <td className="px-6 py-4">
-                                  <div className="flex flex-wrap gap-1 max-w-[200px]">
-                                    {order.orderItems?.map((item: any, idx: number) => (
-                                      <span key={idx} className="bg-blue-50 text-blue-700 text-[9px] px-1.5 py-0.5 rounded-full font-bold">
-                                        {item.quantity}x {item.product.name.split(' ')[0]}
-                                      </span>
-                                    ))}
-                                  </div>
-                                </td>
-                                <td className="px-6 py-4">
-                                  <span className={`px-2 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter ${ORDER_STATUS_COLOR[order.status]}`}>
-                                    {ORDER_STATUS[order.status]}
-                                  </span>
-                                </td>
-                                <td className="px-6 py-4 text-right font-black text-gray-900 text-sm">
-                                  {formatCurrency(order.totalAmount)}
-                                </td>
-                              </tr>
-                            ))
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-                    </div>
-                  ))}
                 </div>
               )}
             </CardContent>
           </Card>
         </div>
       </div>
+
+      {/* Ekip Aktivite İzleme Modalı (Cari Hesap gibi) */}
+      <Dialog open={showActivityDialog} onOpenChange={setShowActivityDialog}>
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto p-0 gap-0">
+          <DialogHeader className="p-6 bg-gray-50 border-b flex flex-row items-center justify-between">
+            <div className="space-y-1">
+              <DialogTitle className="text-xl flex items-center gap-3">
+                <div className={`p-2 rounded-full ${selectedMember?.role === 'ADMIN' ? 'bg-purple-100' : 'bg-blue-100'}`}>
+                  {selectedMember?.role === 'ADMIN' ? <ShieldCheck className="h-5 w-5 text-purple-700" /> : <User className="h-5 w-5 text-blue-700" />}
+                </div>
+                {selectedMember?.name} - Aktivite Paneli
+              </DialogTitle>
+              <p className="text-xs text-gray-500">Bu personelin yönettiği müşteriler, satışlar ve performans verileri.</p>
+            </div>
+            <div className="flex items-center gap-4 text-right pr-8">
+              <div>
+                <p className="text-[10px] text-gray-400 font-bold uppercase">Toplam Ciro</p>
+                <p className="text-lg font-bold text-green-600">{formatCurrency(selectedMember?.stats?.totalSales || 0)}</p>
+              </div>
+              <div className="border-l pl-4">
+                <p className="text-[10px] text-gray-400 font-bold uppercase">Müşteri Sayısı</p>
+                <p className="text-lg font-bold text-blue-600">{selectedMember?.stats?.customerCount || 0}</p>
+              </div>
+            </div>
+          </DialogHeader>
+
+          <div className="p-6 space-y-8">
+            {/* Üst Kısım: Top Müşteriler ve Ürünler */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              
+              {/* Portföy / Müşteriler */}
+              <div className="space-y-4">
+                <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                  <Target className="h-4 w-4 text-blue-600" />
+                  Yönettiği En Değerli Müşteriler
+                </h3>
+                <div className="bg-white border rounded-xl overflow-hidden">
+                  <Table>
+                    <TableHeader className="bg-gray-50">
+                      <TableRow>
+                        <TableHead>Müşteri Adı</TableHead>
+                        <TableHead className="text-center">Sipariş</TableHead>
+                        <TableHead className="text-right">T. Ciro</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {selectedMember?.stats?.customerDetails?.length === 0 ? (
+                        <TableRow><TableCell colSpan={3} className="text-center py-8 text-gray-500 italic">Müşteri yok.</TableCell></TableRow>
+                      ) : (
+                        selectedMember?.stats?.customerDetails.map((cust: any) => (
+                          <TableRow key={cust.id}>
+                            <TableCell className="font-medium text-gray-700">{cust.name}</TableCell>
+                            <TableCell className="text-center">{cust.orderCount}</TableCell>
+                            <TableCell className="text-right font-bold text-emerald-600">{formatCurrency(cust.totalSales)}</TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+
+              {/* Ürün Bazlı Satış Performansı */}
+              <div className="space-y-4">
+                <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                  <Package className="h-4 w-4 text-purple-600" />
+                  Satışını Yapılan Ürünler Listesi
+                </h3>
+                <div className="bg-white border rounded-xl overflow-hidden">
+                  <Table>
+                    <TableHeader className="bg-gray-50">
+                      <TableRow>
+                        <TableHead>Ürün İsmi</TableHead>
+                        <TableHead className="text-center">Adet</TableHead>
+                        <TableHead className="text-right">T. Hacim</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {selectedMember?.stats?.productDetails?.length === 0 ? (
+                        <TableRow><TableCell colSpan={3} className="text-center py-8 text-gray-500 italic">Satış kaydı yok.</TableCell></TableRow>
+                      ) : (
+                        selectedMember?.stats?.productDetails.map((prod: any, idx: number) => (
+                          <TableRow key={idx}>
+                            <TableCell className="font-medium text-gray-700">{prod.name}</TableCell>
+                            <TableCell className="text-center">
+                              <span className="bg-purple-50 text-purple-700 px-2 py-0.5 rounded text-xs font-bold">{prod.quantity} Ad.</span>
+                            </TableCell>
+                            <TableCell className="text-right font-bold text-gray-900">{formatCurrency(prod.total)}</TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            </div>
+
+            {/* Alt Kısım: Detaylı Son İşlemler */}
+            <div className="space-y-4">
+              <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                <Clock className="h-4 w-4 text-orange-500" />
+                Girilen Son Siparişler ve İçerikleri
+              </h3>
+              <div className="border rounded-xl overflow-hidden bg-white">
+                <Table>
+                  <TableHeader className="bg-gray-50">
+                    <TableRow>
+                      <TableHead>Tarih</TableHead>
+                      <TableHead>Müşteri</TableHead>
+                      <TableHead>Ürün Grupları</TableHead>
+                      <TableHead>Durum</TableHead>
+                      <TableHead className="text-right">Tutar</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {selectedMember?.stats?.recentOrders?.length === 0 ? (
+                      <TableRow><TableCell colSpan={5} className="text-center py-8 text-gray-500 italic">Sipariş verisi yok.</TableCell></TableRow>
+                    ) : (
+                      selectedMember?.stats?.recentOrders.map((order: any) => (
+                        <TableRow key={order.id} className="group hover:bg-gray-50">
+                          <TableCell className="text-xs text-gray-500 shrink-0">{formatDate(order.createdAt)}</TableCell>
+                          <TableCell className="font-semibold text-gray-800">{order.customer?.user?.name}</TableCell>
+                          <TableCell>
+                            <div className="flex flex-wrap gap-1.5">
+                              {order.orderItems?.map((item: any, idx: number) => (
+                                <span key={idx} className="bg-blue-50 text-blue-700 text-[10px] px-2 py-0.5 rounded-full font-medium border border-blue-100">
+                                  {item.quantity}x {item.product.name}
+                                </span>
+                              ))}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <span className={`px-2 py-1 rounded-full text-[10px] font-bold ${ORDER_STATUS_COLOR[order.status]}`}>
+                              {ORDER_STATUS[order.status]}
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-right font-bold text-blue-700">
+                            {formatCurrency(order.totalAmount)}
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="p-4 bg-gray-50 border-t items-center justify-between px-6">
+            <p className="text-[10px] text-gray-400 italic">* Bu veriler veritabanından anlık olarak çekilen canlı performans raporlarıdır.</p>
+            <Button variant="outline" onClick={() => setShowActivityDialog(false)}>Kapat</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
