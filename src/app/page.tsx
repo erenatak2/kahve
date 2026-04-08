@@ -61,7 +61,7 @@ export default function Home() {
             <ShoppingBag className="h-8 w-8" />
           </div>
           <h1 className="text-2xl font-bold text-gray-900">Satış Yönetim</h1>
-          <p className="text-gray-500 text-sm mt-1">Sipariş Takip Sistemi</p>
+          <p className="text-gray-500 text-sm mt-1">Müşteri Paneli</p>
         </div>
 
         <Card className="shadow-lg border-emerald-100">
