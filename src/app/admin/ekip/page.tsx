@@ -241,7 +241,7 @@ export default function EkipYonetimiPage() {
                             variant="outline" 
                             size="sm" 
                             className="gap-2 h-9 border-blue-200 text-blue-700 hover:bg-blue-50"
-                            onClick={() => { setSelectedMember(member); setShowActivityDialog(true); }}
+                            onClick={() => router.push(`/admin/ekip/${member.id}`)}
                           >
                             <Eye className="h-4 w-4" />
                             Aktivite İzle
