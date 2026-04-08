@@ -6,9 +6,10 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/components/ui/use-toast'
-import { Users, UserPlus, Eye, EyeOff, Trash2, ShieldCheck, User, Edit, UserCog, TrendingUp, ShoppingBag, UserCheck, ChevronDown, ChevronUp, Clock, Target, Package, ListChecks } from 'lucide-react'
+import { Users, UserPlus, Eye, EyeOff, Trash2, ShieldCheck, User, Edit, UserCog, TrendingUp, ShoppingBag, UserCheck, ChevronDown, ChevronUp, Clock, Target, Package, ListChecks, Maximize2, X } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { formatCurrency, formatDate, ORDER_STATUS_COLOR, ORDER_STATUS } from '@/lib/utils'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 
 export default function EkipYonetimiPage() {
   const [team, setTeam] = useState<any[]>([])
@@ -18,7 +19,7 @@ export default function EkipYonetimiPage() {
   const [password, setPassword] = useState('')
   const [role, setRole] = useState('SATICI')
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [viewingMember, setViewingMember] = useState<any | null>(null)
   const [showPassword, setShowPassword] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
@@ -200,159 +201,221 @@ export default function EkipYonetimiPage() {
               ) : (
                 <div className="divide-y">
                   {team.map((member) => (
-                    <div key={member.id} className="divide-y overflow-hidden">
-                      <div 
-                        className={`p-4 hover:bg-gray-50 transition-colors cursor-pointer ${expandedId === member.id ? 'bg-blue-50/30' : ''}`}
-                        onClick={() => setExpandedId(expandedId === member.id ? null : member.id)}
-                      >
-                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                          <div className="flex items-center gap-4">
-                            <div className={`p-2 rounded-full ${member.role === 'ADMIN' ? 'bg-purple-100' : 'bg-blue-100'}`}>
-                              {member.role === 'ADMIN' ? <ShieldCheck className="h-5 w-5 text-purple-700" /> : <User className="h-5 w-5 text-blue-700" />}
-                            </div>
-                            <div>
-                              <p className="font-semibold text-gray-900">{member.name}</p>
-                              <p className="text-sm text-gray-500">{member.email}</p>
-                            </div>
-                            <span className={`px-2.5 py-1 text-[10px] font-bold rounded-full ${
-                              member.role === 'ADMIN' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'
-                            }`}>
-                              {member.role === 'ADMIN' ? 'YÖNETİCİ' : 'SATICI'}
-                            </span>
+                    <div key={member.id} className="p-4 hover:bg-gray-50 transition-colors">
+                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div className="flex items-center gap-4">
+                          <div className={`p-2 rounded-full ${member.role === 'ADMIN' ? 'bg-purple-100' : 'bg-blue-100'}`}>
+                            {member.role === 'ADMIN' ? <ShieldCheck className="h-5 w-5 text-purple-700" /> : <User className="h-5 w-5 text-blue-700" />}
                           </div>
-                          
-                          {/* Satış İstatistikleri */}
-                          <div className="flex items-center gap-6 bg-white p-2 px-4 rounded-xl border border-gray-100 shadow-sm">
-                            <div className="text-center">
-                              <p className="text-[10px] text-gray-400 uppercase font-bold">Ciro</p>
-                              <p className="text-sm font-bold text-green-600">{formatCurrency(member.stats?.totalSales || 0)}</p>
-                            </div>
-                            <div className="text-center border-x px-6 border-gray-100">
-                              <p className="text-[10px] text-gray-400 uppercase font-bold">Sipariş</p>
-                              <p className="text-sm font-bold text-gray-700">{member.stats?.orderCount || 0}</p>
-                            </div>
-                            <div className="text-center">
-                              <p className="text-[10px] text-gray-400 uppercase font-bold">Müşteri</p>
-                              <p className="text-sm font-bold text-blue-600">{member.stats?.customerCount || 0}</p>
-                            </div>
+                          <div>
+                            <p className="font-semibold text-gray-900">{member.name}</p>
+                            <p className="text-sm text-gray-500">{member.email}</p>
                           </div>
+                        </div>
+                        
+                        {/* Satış İstatistikleri */}
+                        <div className="flex items-center gap-6 bg-white p-2 px-4 rounded-xl border border-gray-100 shadow-sm">
+                          <div className="text-center">
+                            <p className="text-[10px] text-gray-400 uppercase font-bold">Ciro</p>
+                            <p className="text-sm font-bold text-green-600">{formatCurrency(member.stats?.totalSales || 0)}</p>
+                          </div>
+                          <div className="text-center border-x px-6 border-gray-100">
+                            <p className="text-[10px] text-gray-400 uppercase font-bold">Sipariş</p>
+                            <p className="text-sm font-bold text-gray-700">{member.stats?.orderCount || 0}</p>
+                          </div>
+                          <div className="text-center">
+                            <p className="text-[10px] text-gray-400 uppercase font-bold">Müşteri</p>
+                            <p className="text-sm font-bold text-blue-600">{member.stats?.customerCount || 0}</p>
+                          </div>
+                        </div>
 
-                          <div className="flex items-center gap-2 justify-end">
-                            {expandedId === member.id ? <ChevronUp className="h-5 w-5 text-gray-400 mr-2" /> : <ChevronDown className="h-5 w-5 text-gray-400 mr-2" />}
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              className="text-blue-600 hover:text-blue-800 hover:bg-blue-50 h-9 w-9"
-                              title="Üyeyi Düzenle"
-                              onClick={(e) => { e.stopPropagation(); handleEditClick(member); }}
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              className="text-red-500 hover:text-red-700 hover:bg-red-50 h-9 w-9"
-                              title="Hesabı Sil"
-                              onClick={(e) => { e.stopPropagation(); handleDelete(member.id, member.name); }}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
+                        <div className="flex items-center gap-2 justify-end">
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            className="text-blue-600 border-blue-100 hover:bg-blue-50 gap-2 h-9"
+                            onClick={() => setViewingMember(member)}
+                          >
+                            <Maximize2 className="h-4 w-4" />
+                            İncele
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="text-blue-600 hover:text-blue-800 hover:bg-blue-50 h-9 w-9"
+                            title="Üyeyi Düzenle"
+                            onClick={() => handleEditClick(member)}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="text-red-500 hover:text-red-700 hover:bg-red-50 h-9 w-9"
+                            title="Hesabı Sil"
+                            onClick={() => handleDelete(member.id, member.name)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         </div>
                       </div>
+                    </div>
+                  ))}
 
-                      {/* Detay Paneli (Expandable) */}
-                      {expandedId === member.id && (
-                        <div className="bg-gray-50/50 p-4 space-y-4 animate-in slide-in-from-top-2 duration-200 border-t">
-                          
-                          {/* İstatistik Özet Kartları */}
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            
-                            {/* Top Müşteriler */}
-                            <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm flex flex-col">
-                              <h3 className="text-xs font-bold text-gray-400 uppercase flex items-center gap-2 mb-4">
-                                <Target className="h-4 w-4 text-blue-500" />
-                                Portfolio (Top Müşteriler)
-                              </h3>
-                              <div className="space-y-3 flex-1">
-                                {member.stats?.customerDetails?.length === 0 ? (
-                                  <p className="text-xs text-gray-500 italic py-4">Henüz atanmış müşteri yok.</p>
-                                ) : (
-                                  member.stats.customerDetails.slice(0, 8).map((cust: any) => (
-                                    <div key={cust.id} className="flex items-center justify-between group">
-                                      <span className="text-sm font-medium text-gray-700 truncate mr-2" title={cust.name}>{cust.name}</span>
-                                      <div className="flex items-center gap-3 shrink-0">
-                                        <span className="text-[10px] text-gray-400">{cust.orderCount} Sip.</span>
-                                        <span className="text-sm font-bold text-gray-900">
-                                          {formatCurrency(cust.totalSales)}
-                                        </span>
-                                      </div>
-                                    </div>
-                                  ))
-                                )}
-                              </div>
+      {/* Detay Paneli (Modal) */}
+      <Dialog open={!!viewingMember} onOpenChange={() => setViewingMember(null)}>
+        <DialogContent className="max-w-6xl h-[90vh] overflow-hidden flex flex-col p-0 bg-gray-50">
+          <DialogHeader className="p-6 bg-white border-b shrink-0">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className={`p-3 rounded-2xl ${viewingMember?.role === 'ADMIN' ? 'bg-purple-100' : 'bg-blue-100'}`}>
+                  {viewingMember?.role === 'ADMIN' ? <ShieldCheck className="h-7 w-7 text-purple-700" /> : <User className="h-7 w-7 text-blue-700" />}
+                </div>
+                <div>
+                  <DialogTitle className="text-2xl font-bold text-gray-900">{viewingMember?.name}</DialogTitle>
+                  <p className="text-gray-500 font-medium">{viewingMember?.email} • <span className={viewingMember?.role === 'ADMIN' ? 'text-purple-600' : 'text-blue-600'}>{viewingMember?.role === 'ADMIN' ? 'Yönetici' : 'Satış Temsilcisi'}</span></p>
+                </div>
+              </div>
+              <div className="flex gap-4">
+                <div className="bg-white border p-3 px-6 rounded-2xl shadow-sm text-center">
+                  <p className="text-[10px] text-gray-400 font-bold uppercase mb-1">Toplam Ciro</p>
+                  <p className="text-xl font-black text-green-600">{formatCurrency(viewingMember?.stats?.totalSales || 0)}</p>
+                </div>
+                <div className="bg-white border p-3 px-6 rounded-2xl shadow-sm text-center">
+                  <p className="text-[10px] text-gray-400 font-bold uppercase mb-1">Müşteri Sayısı</p>
+                  <p className="text-xl font-black text-blue-600">{viewingMember?.stats?.customerCount || 0}</p>
+                </div>
+              </div>
+            </div>
+          </DialogHeader>
+
+          <div className="flex-1 overflow-auto p-6 space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              
+              {/* Sol Sütun: Portföy Değerleri */}
+              <div className="lg:col-span-1 space-y-6">
+                <Card className="border-none shadow-sm rounded-2xl overflow-hidden">
+                  <CardHeader className="bg-white border-b py-4">
+                    <CardTitle className="text-sm font-bold flex items-center gap-2">
+                      <Target className="h-4 w-4 text-blue-500" />
+                      En Değerli Müşterileri
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-0">
+                    <div className="divide-y">
+                      {viewingMember?.stats?.customerDetails?.length === 0 ? (
+                        <p className="p-8 text-center text-sm text-gray-500 italic">Atanmış müşteri bulunamadı.</p>
+                      ) : (
+                        viewingMember?.stats?.customerDetails.map((cust: any) => (
+                          <div key={cust.id} className="p-4 flex items-center justify-between hover:bg-gray-50 transition-colors">
+                            <span className="font-semibold text-gray-700">{cust.name}</span>
+                            <div className="text-right">
+                              <p className="text-sm font-bold text-gray-900">{formatCurrency(cust.totalSales)}</p>
+                              <p className="text-[10px] text-gray-400 uppercase font-medium">{cust.orderCount} Sipariş</p>
                             </div>
-
-                            {/* Ürün Bazlı Performans */}
-                            <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm flex flex-col">
-                              <h3 className="text-xs font-bold text-gray-400 uppercase flex items-center gap-2 mb-4">
-                                <Package className="h-4 w-4 text-emerald-500" />
-                                Neler Sattı? (Ürün Bazlı)
-                              </h3>
-                              <div className="space-y-3 flex-1">
-                                {member.stats?.productDetails?.length === 0 ? (
-                                  <p className="text-xs text-gray-500 italic py-4">Henüz satış yapılmadı.</p>
-                                ) : (
-                                  member.stats.productDetails.slice(0, 8).map((prod: any, idx: number) => (
-                                    <div key={idx} className="flex items-center justify-between">
-                                      <span className="text-sm font-medium text-gray-700 truncate mr-2" title={prod.name}>{prod.name}</span>
-                                      <div className="flex items-center gap-3 shrink-0">
-                                        <span className="text-[10px] bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">{prod.quantity} Ad.</span>
-                                        <span className="text-sm font-bold text-emerald-600">
-                                          {formatCurrency(prod.total)}
-                                        </span>
-                                      </div>
-                                    </div>
-                                  ))
-                                )}
-                              </div>
-                            </div>
-
-                            {/* Son İşlemler Detaylı */}
-                            <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm flex flex-col">
-                              <h3 className="text-xs font-bold text-gray-400 uppercase flex items-center gap-2 mb-4">
-                                <Clock className="h-4 w-4 text-orange-500" />
-                                Son Siparişler ve İçerikleri
-                              </h3>
-                              <div className="space-y-4 flex-1 overflow-auto max-h-[300px] pr-1 custom-scrollbar">
-                                {member.stats?.recentOrders?.length === 0 ? (
-                                  <p className="text-xs text-gray-500 italic py-4">Henüz işlem yok.</p>
-                                ) : (
-                                  member.stats.recentOrders.map((order: any) => (
-                                    <div key={order.id} className="border-b border-gray-50 pb-3 last:border-0">
-                                      <div className="flex items-center justify-between mb-1">
-                                        <p className="text-sm font-bold text-gray-800 truncate">{order.customer?.user?.name}</p>
-                                        <span className="text-[10px] text-gray-400 font-medium">{formatDate(order.createdAt)}</span>
-                                      </div>
-                                      <div className="flex items-center justify-between">
-                                        <div className="flex flex-wrap gap-1">
-                                          {order.orderItems?.map((item: any, idx: number) => (
-                                            <span key={idx} className="bg-gray-100 text-[9px] text-gray-600 px-1.5 py-0.5 rounded">
-                                              {item.quantity}x {item.product.name.split(' ')[0]}...
-                                            </span>
-                                          ))}
-                                        </div>
-                                        <p className="font-bold text-xs text-blue-600 ml-2">{formatCurrency(order.totalAmount)}</p>
-                                      </div>
-                                    </div>
-                                  ))
-                                )}
-                              </div>
-                            </div>
-
                           </div>
-                        </div>
+                        ))
                       )}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="border-none shadow-sm rounded-2xl overflow-hidden">
+                  <CardHeader className="bg-white border-b py-4">
+                    <CardTitle className="text-sm font-bold flex items-center gap-2">
+                      <Package className="h-4 w-4 text-emerald-500" />
+                      Ürün Satış Performansı
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-4">
+                    <div className="space-y-4">
+                      {viewingMember?.stats?.productDetails?.length === 0 ? (
+                        <p className="text-center text-sm text-gray-500 italic py-4">Satış verisi yok.</p>
+                      ) : (
+                        viewingMember?.stats?.productDetails.map((prod: any, idx: number) => (
+                          <div key={idx} className="space-y-1">
+                            <div className="flex justify-between text-sm mb-1">
+                              <span className="text-gray-600 font-medium truncate pr-4">{prod.name}</span>
+                              <span className="font-bold text-gray-900">{prod.quantity} Adet</span>
+                            </div>
+                            <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
+                              <div 
+                                className="h-full bg-emerald-500 rounded-full" 
+                                style={{ width: `${(prod.total / (viewingMember?.stats?.totalSales || 1)) * 100}%` }}
+                              />
+                            </div>
+                            <p className="text-right text-[10px] text-emerald-600 font-bold">{formatCurrency(prod.total)}</p>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Sağ Sütun: İşlem Geçmişi */}
+              <div className="lg:col-span-2">
+                <Card className="border-none shadow-sm rounded-2xl overflow-hidden h-full flex flex-col">
+                  <CardHeader className="bg-white border-b py-4">
+                    <CardTitle className="text-sm font-bold flex items-center gap-2">
+                      <Clock className="h-4 w-4 text-orange-500" />
+                      Sistem İşlem Geçmişi (Son 15 Sipariş)
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-0 flex-1">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="bg-gray-50 text-[10px] text-gray-400 font-bold uppercase tracking-wider">
+                            <th className="px-6 py-4 border-b">Tarih</th>
+                            <th className="px-6 py-4 border-b">Müşteri</th>
+                            <th className="px-6 py-4 border-b">İçerik</th>
+                            <th className="px-6 py-4 border-b">Durum</th>
+                            <th className="px-6 py-4 border-b text-right">Tutar</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y">
+                          {viewingMember?.stats?.recentOrders?.length === 0 ? (
+                            <tr><td colSpan={5} className="p-12 text-center text-sm text-gray-500 italic">Henüz bir işlem gerçekleştirilmedi.</td></tr>
+                          ) : (
+                            viewingMember?.stats?.recentOrders.map((order: any) => (
+                              <tr key={order.id} className="hover:bg-gray-50 transition-colors group">
+                                <td className="px-6 py-4 text-xs font-medium text-gray-500">{formatDate(order.createdAt)}</td>
+                                <td className="px-6 py-4">
+                                  <p className="text-sm font-bold text-gray-900 leading-none">{order.customer?.user?.name}</p>
+                                  <p className="text-[10px] text-gray-400 mt-1">{order.id.slice(-8).toUpperCase()}</p>
+                                </td>
+                                <td className="px-6 py-4">
+                                  <div className="flex flex-wrap gap-1 max-w-[200px]">
+                                    {order.orderItems?.map((item: any, idx: number) => (
+                                      <span key={idx} className="bg-blue-50 text-blue-700 text-[9px] px-1.5 py-0.5 rounded-full font-bold">
+                                        {item.quantity}x {item.product.name.split(' ')[0]}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </td>
+                                <td className="px-6 py-4">
+                                  <span className={`px-2 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter ${ORDER_STATUS_COLOR[order.status]}`}>
+                                    {ORDER_STATUS[order.status]}
+                                  </span>
+                                </td>
+                                <td className="px-6 py-4 text-right font-black text-gray-900 text-sm">
+                                  {formatCurrency(order.totalAmount)}
+                                </td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
                     </div>
                   ))}
                 </div>
