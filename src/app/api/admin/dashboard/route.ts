@@ -34,10 +34,10 @@ export async function GET(req: NextRequest) {
         ...(isSalesRep ? { salesRepId: userId } : {})
       }
     }),
-    prisma.product.count({ where: { isDeleted: false } })
+    prisma.product.count({ where: { isActive: true } })
   ])
 
-  // 2. Son Siparişler (Sadece ilk 10)
+  // 2. Son Siparişler
   const recentOrders = await prisma.order.findMany({
     where: {
       ...(isSalesRep ? { customer: { salesRepId: userId } } : {})
@@ -49,8 +49,8 @@ export async function GET(req: NextRequest) {
     }
   })
 
-  // 3. Bekleyen Ödemeler / Alacaklar (Nokta atışı sorgu)
-  const pendingPayments = await prisma.collection.findMany({
+  // 3. Bekleyen Ödemeler / Alacaklar (Payment tablosundan)
+  const pendingPayments = await prisma.payment.findMany({
     where: {
       status: { in: ['BEKLIYOR', 'GECIKTI'] },
       ...(isSalesRep ? { order: { customer: { salesRepId: userId } } } : {})
@@ -59,10 +59,10 @@ export async function GET(req: NextRequest) {
       order: { select: { customer: { select: { user: { select: { name: true } } } } } }
     },
     orderBy: { dueDate: 'asc' },
-    take: 20
+    take: 10
   })
 
-  // 4. Hatırlatıcılar (Bugün ve gelecek)
+  // 4. Hatırlatıcılar
   const today = new Date()
   today.setHours(0, 0, 0, 0)
 

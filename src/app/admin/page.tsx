@@ -30,7 +30,7 @@ async function getDashboardData(session: any) {
         ...(isSalesRep ? { salesRepId: userId } : {})
       }
     }),
-    prisma.product.count({ where: { isDeleted: false } })
+    prisma.product.count({ where: { isActive: true } })
   ])
 
   // 2. Son Siparişler (Sadece ilk 10)
@@ -45,8 +45,8 @@ async function getDashboardData(session: any) {
     }
   })
 
-  // 3. Bekleyen Ödemeler / Alacaklar
-  const pendingPayments = await prisma.collection.findMany({
+  // 3. Bekleyen Ödemeler / Alacaklar (Payment tablosundan)
+  const pendingPayments = await prisma.payment.findMany({
     where: {
       status: { in: ['BEKLIYOR', 'GECIKTI'] },
       ...(isSalesRep ? { order: { customer: { salesRepId: userId } } } : {})
