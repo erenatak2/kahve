@@ -10,7 +10,7 @@ export const metadata = {
   description: 'Proje Giriş Paneli',
   icons: {
     icon: [
-      { url: '/favicon.ico', href: '/favicon.ico' },
+      { url: '/favicon.ico?v=4.1', href: '/favicon.ico?v=4.1' },
     ],
   },
   robots: {
