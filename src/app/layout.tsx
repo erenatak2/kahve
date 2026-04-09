@@ -8,11 +8,6 @@ const inter = Inter({ subsets: ['latin'] })
 export const metadata = {
   title: 'Satış Yönetim v4.1',
   description: 'Proje Giriş Paneli',
-  icons: {
-    icon: [
-      { url: '/favicon.ico?v=4.1', href: '/favicon.ico?v=4.1' },
-    ],
-  },
   robots: {
     index: false,
     follow: false,
