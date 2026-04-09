@@ -373,7 +373,13 @@ export default function TahsilatPage() {
                                     type="text"
                                     className="w-24 bg-transparent border-none outline-none font-black text-xl text-slate-900 tracking-tighter p-0 text-right focus:ring-0 focus:outline-none"
                                     value={editForm.amount}
-                                    onChange={(e) => setEditForm({ ...editForm, amount: e.target.value })}
+                                    onChange={(e) => {
+                                      let val = e.target.value;
+                                      if (editForm.amount === '0' && val.length > 1 && val[1] !== '.' && val[1] !== ',') {
+                                        val = val.substring(1);
+                                      }
+                                      setEditForm({ ...editForm, amount: val });
+                                    }}
                                     onBlur={() => handleUpdateTotalCollected(p)}
                                     onKeyDown={(e) => {
                                       if (e.key === 'Enter') handleUpdateTotalCollected(p)
