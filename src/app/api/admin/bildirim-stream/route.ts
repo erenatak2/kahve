@@ -35,23 +35,34 @@ export async function GET(request: NextRequest) {
             reminders: reminderCount,
             timestamp: Date.now() 
           })
-          controller.enqueue(encoder.encode(`data: ${data}\n\n`))
+          if (!isActive) return
+          
+          try {
+            controller.enqueue(encoder.encode(`data: ${data}\n\n`))
+          } catch (e) {
+            // Eğer controller kapanmışsa (client gitmişse) sessizce durdur
+            isActive = false
+            clearInterval(interval)
+          }
         } catch (error) {
-          console.error('SSE count error:', error)
+          // Prisma hataları gibi diğer hataları logla
+          console.error('SSE data fetch error:', error)
         }
       }
 
       // İlk veriyi gönder
       await sendCounts()
       
-      // Her 3 saniyede bir güncelle (daha hızlı)
       const interval = setInterval(sendCounts, 3000)
       
-      // Client bağlantıyı kesince temizle
       request.signal.addEventListener('abort', () => {
         isActive = false
         clearInterval(interval)
-        controller.close()
+        try {
+          controller.close()
+        } catch (e) {
+          // Zaten kapalıysa hata vermesin
+        }
       })
     }
   })
