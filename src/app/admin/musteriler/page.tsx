@@ -317,7 +317,7 @@ export default function MusterilerPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Müşteri / Satıcı</TableHead>
+                <TableHead>Müşteri</TableHead>
                 <TableHead className="hidden md:table-cell">İletişim</TableHead>
                 <TableHead className="hidden lg:table-cell text-right">Sipariş</TableHead>
                 <TableHead className="hidden lg:table-cell text-right">Ciro</TableHead>
