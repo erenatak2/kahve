@@ -9,10 +9,13 @@ export async function GET(req: NextRequest) {
 
   const role = (session.user as any).role
   const userId = (session.user as any).id
+  const now = new Date()
 
   const reminders = await prisma.order.findMany({
     where: {
-      reminderAt: { not: null },
+      reminderAt: { 
+        not: null
+      },
       followupStatus: 'BEKLIYOR',
       ...(role === 'SATICI' && {
         customer: {
@@ -24,7 +27,7 @@ export async function GET(req: NextRequest) {
       customer: {
         include: {
           user: {
-            select: { name: true }
+            select: { name: true, email: true }
           }
         }
       }
@@ -39,15 +42,20 @@ export async function GET(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
   const session = await getServerSession(authOptions)
-  if (!session || (session.user as any).role !== 'ADMIN') {
-    return NextResponse.json({ error: 'Yetkisiz' }, { status: 401 })
-  }
+  if (!session) return NextResponse.json({ error: 'Yetkisiz' }, { status: 401 })
 
-  const { orderId, followupStatus } = await req.json()
+  const url = new URL(req.url)
+  const idFromQuery = url.searchParams.get('id')
+  
+  const body = await req.json().catch(() => ({}))
+  const orderId = idFromQuery || body.id || body.orderId
+  const status = body.status || 'ARANDI'
+
+  if (!orderId) return NextResponse.json({ error: 'ID gerekli' }, { status: 400 })
 
   const order = await prisma.order.update({
     where: { id: orderId },
-    data: { followupStatus }
+    data: { followupStatus: status }
   })
 
   return NextResponse.json(order)

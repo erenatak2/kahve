@@ -195,7 +195,7 @@ export default function YeniSiparis() {
                       <div className="flex-1 min-w-0">
                         <p className="font-medium text-sm leading-tight">{p.name}</p>
                         <p className="text-xs text-gray-500 mt-0.5">{p.category}</p>
-                        <p className="text-blue-600 font-bold text-sm mt-1">{formatCurrency(price)}</p>
+                        <p className="text-blue-600 font-bold text-sm mt-1">{formatCurrency(price * 1.2)}</p>
                       </div>
                       <Button
                         size="sm"
@@ -239,9 +239,9 @@ export default function YeniSiparis() {
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1 min-w-0">
                         <p className="font-medium text-sm truncate">{item.name}</p>
-                        <p className="text-xs text-gray-500 mt-1">{formatCurrency(item.unitPrice)} × {item.quantity}</p>
+                        <p className="text-xs text-gray-500 mt-1">{formatCurrency(item.unitPrice * 1.2)} × {item.quantity}</p>
                       </div>
-                      <p className="font-bold text-blue-600">{formatCurrency(item.unitPrice * item.quantity)}</p>
+                      <p className="font-bold text-blue-600">{formatCurrency(item.unitPrice * 1.2 * item.quantity)}</p>
                     </div>
                     <div className="flex items-center justify-between mt-3">
                       <div className="flex items-center gap-2">
@@ -281,8 +281,8 @@ export default function YeniSiparis() {
               <div className="flex justify-between items-center">
                 <span className="font-semibold">Toplam:</span>
                 <div className="text-right">
-                  <span className="text-xl font-bold text-blue-600">{formatCurrency(total)}</span>
-                  <p className="text-xs text-gray-400">KDV Hariç</p>
+                  <span className="text-xl font-bold text-blue-600">{formatCurrency(total * 1.2)}</span>
+                  <p className="text-[10px] text-blue-600 font-bold uppercase tracking-tight bg-blue-50 px-2 py-0.5 rounded mt-1 inline-block">KDV DAHİL</p>
                 </div>
               </div>
               <Input
@@ -296,7 +296,7 @@ export default function YeniSiparis() {
                 disabled={submitting} 
                 className="w-full"
               >
-                {submitting ? 'Gönderiliyor...' : `Sipariş Ver (${formatCurrency(total)})`}
+                {submitting ? 'Gönderiliyor...' : `Sipariş Ver (${formatCurrency(total * 1.2)})`}
               </Button>
             </div>
           </div>
@@ -321,7 +321,7 @@ export default function YeniSiparis() {
                 <div>
                   <p className="font-semibold">{selectedProduct.name}</p>
                   <p className="text-sm text-gray-500">{selectedProduct.category}</p>
-                  <p className="text-lg font-bold text-blue-600 mt-1">{formatCurrency(selectedProduct.customerPrice ?? selectedProduct.salePrice)}</p>
+                  <p className="text-lg font-bold text-blue-600 mt-1">{formatCurrency((selectedProduct.customerPrice ?? selectedProduct.salePrice) * 1.2)}</p>
                 </div>
               </div>
               <div className="space-y-2">
@@ -357,8 +357,8 @@ export default function YeniSiparis() {
               </div>
               <div className="bg-gray-50 p-3 rounded">
                 <div className="flex justify-between text-sm">
-                  <span>Toplam:</span>
-                  <span className="font-bold text-blue-600">{formatCurrency((selectedProduct.customerPrice ?? selectedProduct.salePrice) * selectedQuantity)}</span>
+                  <span>Toplam (KDV Dahil):</span>
+                  <span className="font-bold text-blue-600">{formatCurrency((selectedProduct.customerPrice ?? selectedProduct.salePrice) * 1.2 * selectedQuantity)}</span>
                 </div>
               </div>
             </div>
@@ -384,20 +384,21 @@ export default function YeniSiparis() {
                 <div key={item.productId} className="p-3 flex justify-between text-sm">
                   <div className="flex-1">
                     <p className="font-medium">{item.name}</p>
-                    <p className="text-xs text-gray-500">{item.quantity} adet × {formatCurrency(item.unitPrice)}</p>
+                    <p className="text-xs text-gray-500">{item.quantity} adet × {formatCurrency(item.unitPrice * 1.2)}</p>
                   </div>
-                  <p className="font-semibold text-blue-600">{formatCurrency(item.unitPrice * item.quantity)}</p>
+                  <p className="font-semibold text-blue-600">{formatCurrency(item.unitPrice * 1.2 * item.quantity)}</p>
                 </div>
               ))}
             </div>
-            <div className="bg-blue-50 p-3 rounded-lg">
-              <div className="flex justify-between items-center">
-                <span className="font-semibold">Toplam Tutar:</span>
-                <span className="text-xl font-bold text-blue-600">{formatCurrency(total)}</span>
+            <div className="bg-blue-50 p-3 rounded-lg border border-blue-100">
+              <div className="flex justify-between items-center text-blue-800">
+                <span className="font-bold">GENEL TOPLAM:</span>
+                <span className="text-2xl font-black">{formatCurrency(total * 1.2)}</span>
               </div>
+              <p className="text-[10px] text-center mt-1 text-blue-600 font-bold uppercase tracking-wider">TÜM FİYATLAR KDV DAHİLDİR</p>
             </div>
             {notes && (
-              <div className="text-sm">
+              <div className="text-sm border-t pt-2">
                 <p className="font-medium text-gray-700">Sipariş Notu:</p>
                 <p className="text-gray-600 mt-1">{notes}</p>
               </div>

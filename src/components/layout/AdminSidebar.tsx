@@ -241,11 +241,13 @@ export function AdminSidebar({ user, onClose }: { user: { name?: string; email?:
         </div>
       </div>
 
-      <nav className="flex-1 p-4 space-y-1">
+      <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
         {navItems.filter(item => {
           if (user?.role === 'SATICI') {
             return ['/admin', '/admin/urunler', '/admin/musteriler', '/admin/siparisler', '/admin/profil'].includes(item.href)
           }
+          // Takip öğesini aşağıda özel render edeceğimiz için buradan çıkarıyoruz
+          if (item.href === '/admin/takip') return false
           return true
         }).map((item) => {
           const Icon = item.icon
@@ -267,7 +269,7 @@ export function AdminSidebar({ user, onClose }: { user: { name?: string; email?:
                 <Icon className="h-4 w-4" />
                 {item.label}
               </div>
-              {badgeCount > 0 && (
+              {badgeCount > 0 && item.badgeKey !== 'reminders' && (
                 <span className="bg-red-500 text-white text-xs rounded-full h-5 min-w-[20px] px-1.5 flex items-center justify-center font-bold">
                   {formatBadge(badgeCount)}
                 </span>
@@ -275,6 +277,40 @@ export function AdminSidebar({ user, onClose }: { user: { name?: string; email?:
             </Link>
           )
         })}
+
+        {/* Özel Aranacaklar Bölümü */}
+        <div className="mt-8 pt-4 border-t">
+          <Link 
+            href="/admin/takip"
+            className={cn(
+              "flex items-center justify-between px-3 py-2 rounded-lg transition-colors group",
+              pathname === '/admin/takip' ? "bg-blue-50" : "hover:bg-gray-50"
+            )}
+          >
+            <div className="flex items-center gap-2">
+              <Phone className="h-4 w-4 text-blue-600" />
+              <span className="text-[11px] font-black uppercase tracking-widest text-gray-900">ARANACAKLAR</span>
+            </div>
+            <span className="bg-blue-100 text-blue-700 text-[10px] font-black rounded-full h-5 min-w-[20px] px-1.5 flex items-center justify-center">
+              {counts.reminders}
+            </span>
+          </Link>
+          
+          <div className="grid grid-cols-4 gap-1 mt-2 px-1">
+            {['Tümü', 'Geciken', 'Bugün', 'Yakında'].map((label) => (
+              <Button
+                key={label}
+                variant="ghost"
+                className="h-6 text-[9px] px-0 font-bold bg-blue-600 text-white hover:bg-blue-700 rounded-sm"
+                asChild
+              >
+                <Link href={`/admin/takip?filter=${label.toLowerCase()}`}>
+                  {label}
+                </Link>
+              </Button>
+            ))}
+          </div>
+        </div>
       </nav>
 
       <div className="p-4 border-t">

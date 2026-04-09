@@ -334,9 +334,9 @@ export default function SiparislerPage() {
                       </div>
                     )
                   })}
-                  <div className="border-t pt-2 flex justify-between font-bold">
-                    <span>Toplam</span>
-                    <span>{formatCurrency(items.reduce((s, i) => s + i.unitPrice * i.quantity, 0))}</span>
+                  <div className="border-t pt-2 flex justify-between font-bold text-blue-600">
+                    <span>Toplam (KDV Dahil)</span>
+                    <span>{formatCurrency(items.reduce((s, i) => s + i.unitPrice * i.quantity, 0) * 1.2)}</span>
                   </div>
                 </div>
               )}

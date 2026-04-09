@@ -77,16 +77,18 @@ export async function POST(req: NextRequest) {
       if (!product) throw new Error(`Ürün bulunamadı: ${item.productId}`)
 
       const customPrice = customerPrices.find((cp: { productId: string; price: number }) => cp.productId === item.productId)
-      let unitPrice = item.unitPrice ?? customPrice?.price ?? product.salePrice
-      if (!customPrice && customer?.discountRate && customer.discountRate > 0) {
-        unitPrice = product.salePrice * (1 - customer.discountRate / 100)
-      }
+        let unitPrice = item.unitPrice ?? customPrice?.price ?? product.salePrice
+        if (!customPrice && customer?.discountRate && customer.discountRate > 0) {
+          unitPrice = product.salePrice * (1 - customer.discountRate / 100)
+        }
 
-      return { productId: item.productId, quantity: item.quantity, unitPrice, total: unitPrice * item.quantity }
-    })
-  )
+        unitPrice = unitPrice * 1.2 // %20 KDV ekle
 
-  const totalAmount = orderItems.reduce((sum, item) => sum + item.total, 0)
+        return { productId: item.productId, quantity: item.quantity, unitPrice, total: unitPrice * item.quantity }
+      })
+    )
+
+    const totalAmount = orderItems.reduce((sum, item) => sum + item.total, 0)
 
   // Sipariş numarası üret: SP-YYYYMMDD-XXXX
   const now = new Date()

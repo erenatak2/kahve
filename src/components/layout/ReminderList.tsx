@@ -68,37 +68,6 @@ export default function ReminderList() {
 
   return (
     <div className="flex flex-col h-full bg-white w-full border-t lg:border-t-0">
-      <div className="p-4 border-b bg-gray-50/50">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-          <div className="flex items-center gap-2">
-            <div className="p-2 bg-blue-100 rounded-lg">
-              <Phone className="h-4 w-4 text-blue-600" />
-            </div>
-            <div>
-              <h2 className="font-bold text-gray-900 text-sm">Takip Listesi</h2>
-              <p className="text-[10px] text-gray-500 font-medium uppercase tracking-wider">{reminders.length} Bekleyen Kayıt</p>
-            </div>
-          </div>
-          
-          <div className="flex gap-1 overflow-x-auto pb-1 no-scrollbar shrink-0">
-            {(['ALL', 'LATE', 'TODAY', 'UPCOMING'] as const).map((f) => (
-              <button
-                key={f}
-                onClick={() => setFilter(f)}
-                className={cn(
-                  "px-3 py-1.5 text-[10px] font-bold rounded-lg border whitespace-nowrap transition-all shadow-sm",
-                  filter === f 
-                    ? "bg-blue-600 text-white border-blue-600"
-                    : "bg-white text-gray-600 border-gray-200 hover:border-gray-300 hover:bg-gray-50"
-                )}
-              >
-                {f === 'ALL' ? 'Tümü' : f === 'TODAY' ? 'Bugün' : f === 'UPCOMING' ? 'Yakında' : 'Geciken'}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-
       <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
         {loading ? (
           <div className="flex flex-col items-center justify-center py-12 gap-3">
