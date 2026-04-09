@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
-import { Plus, Search, Tag, KeyRound, Trash2, Pencil, DollarSign, ShoppingBag, AlertTriangle, FileSpreadsheet, FileText, UserCheck, Users2 } from 'lucide-react'
+import { Plus, Search, Tag, KeyRound, Trash2, Pencil, DollarSign, ShoppingBag, AlertTriangle, FileSpreadsheet, FileText, UserCheck, Users2, Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -39,6 +39,7 @@ export default function MusterilerPage() {
   const [exportDialog, setExportDialog] = useState<{ customerId: string; name: string } | null>(null)
   const [exportRange, setExportRange] = useState({ startDate: '', endDate: '' })
   const [exporting, setExporting] = useState(false)
+  const [pendingAssignments, setPendingAssignments] = useState<Record<string, string>>({})
   const { toast } = useToast()
 
   const fetchAll = () => {
@@ -342,15 +343,32 @@ export default function MusterilerPage() {
                             <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
                               <select 
                                 className="text-[10px] h-6 rounded border border-orange-300 bg-orange-50 px-1 focus:ring-1 focus:ring-orange-500 font-semibold text-orange-700"
-                                onChange={(e) => handleQuickAssign(c.id, e.target.value)}
-                                value=""
+                                onChange={(e) => setPendingAssignments(prev => ({ ...prev, [c.id]: e.target.value }))}
+                                value={pendingAssignments[c.id] || ""}
                               >
                                 <option value="" disabled>Satıcı Ata</option>
                                 {staff.map((s: any) => (
                                   <option key={s.id} value={s.id}>{s.name}</option>
                                 ))}
                               </select>
-                              <span className="animate-pulse flex h-1.5 w-1.5 rounded-full bg-orange-500"></span>
+                              {pendingAssignments[c.id] ? (
+                                <Button 
+                                  size="sm" 
+                                  className="h-6 w-6 p-0 bg-green-600 hover:bg-green-700 text-white" 
+                                  onClick={() => {
+                                    handleQuickAssign(c.id, pendingAssignments[c.id])
+                                    setPendingAssignments(prev => {
+                                      const next = { ...prev }
+                                      delete next[c.id]
+                                      return next
+                                    })
+                                  }}
+                                >
+                                  <Check className="h-3 w-3" />
+                                </Button>
+                              ) : (
+                                <span className="animate-pulse flex h-1.5 w-1.5 rounded-full bg-orange-500"></span>
+                              )}
                             </div>
                           ) : (
                             <span className="text-[10px] bg-red-50 text-red-600 px-1.5 py-0.5 rounded-full border border-red-100">
