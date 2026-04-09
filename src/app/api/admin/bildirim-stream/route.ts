@@ -21,16 +21,18 @@ export async function GET(request: NextRequest) {
       const sendCounts = async () => {
         if (!isActive) return
         try {
-          const [orderCount, notificationCount, customerCount] = await Promise.all([
+          const [orderCount, notificationCount, customerCount, reminderCount] = await Promise.all([
             prisma.order.count({ where: { status: 'HAZIRLANIYOR' } }),
             prisma.paymentNotification.count({ where: { status: 'BEKLIYOR' } }),
-            prisma.customer.count()
+            prisma.customer.count(),
+            prisma.order.count({ where: { followupStatus: 'BEKLIYOR', reminderAt: { not: null } } })
           ])
           
           const data = JSON.stringify({ 
             orders: orderCount, 
             notifications: notificationCount, 
             customers: customerCount,
+            reminders: reminderCount,
             timestamp: Date.now() 
           })
           controller.enqueue(encoder.encode(`data: ${data}\n\n`))

@@ -67,87 +67,115 @@ export default function ReminderList() {
   }
 
   return (
-    <div className="flex flex-col h-full bg-white w-full border-t">
+    <div className="flex flex-col h-full bg-white w-full border-t lg:border-t-0">
       <div className="p-4 border-b bg-gray-50/50">
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
           <div className="flex items-center gap-2">
-            <Phone className="h-4 w-4 text-blue-600" />
-            <h2 className="font-bold text-gray-900 text-xs uppercase tracking-wider">Aranacaklar</h2>
+            <div className="p-2 bg-blue-100 rounded-lg">
+              <Phone className="h-4 w-4 text-blue-600" />
+            </div>
+            <div>
+              <h2 className="font-bold text-gray-900 text-sm">Takip Listesi</h2>
+              <p className="text-[10px] text-gray-500 font-medium uppercase tracking-wider">{reminders.length} Bekleyen Kayıt</p>
+            </div>
           </div>
-          <span className="bg-blue-100 text-blue-700 text-[10px] px-1.5 py-0.5 rounded-full font-bold">
-            {reminders.length}
-          </span>
-        </div>
-        
-        <div className="flex gap-1 overflow-x-auto pb-1 no-scrollbar">
-          {(['ALL', 'LATE', 'TODAY', 'UPCOMING'] as const).map((f) => (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
-              className={cn(
-                "px-2 py-1 text-[9px] font-bold rounded-md border whitespace-nowrap transition-all",
-                filter === f 
-                  ? "bg-blue-600 text-white border-blue-600 shadow-sm"
-                  : "bg-white text-gray-500 border-gray-200 hover:border-gray-300"
-              )}
-            >
-              {f === 'ALL' ? 'Tümü' : f === 'TODAY' ? 'Bugün' : f === 'UPCOMING' ? 'Yakında' : 'Geciken'}
-            </button>
-          ))}
+          
+          <div className="flex gap-1 overflow-x-auto pb-1 no-scrollbar shrink-0">
+            {(['ALL', 'LATE', 'TODAY', 'UPCOMING'] as const).map((f) => (
+              <button
+                key={f}
+                onClick={() => setFilter(f)}
+                className={cn(
+                  "px-3 py-1.5 text-[10px] font-bold rounded-lg border whitespace-nowrap transition-all shadow-sm",
+                  filter === f 
+                    ? "bg-blue-600 text-white border-blue-600"
+                    : "bg-white text-gray-600 border-gray-200 hover:border-gray-300 hover:bg-gray-50"
+                )}
+              >
+                {f === 'ALL' ? 'Tümü' : f === 'TODAY' ? 'Bugün' : f === 'UPCOMING' ? 'Yakında' : 'Geciken'}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-2 space-y-2 max-h-[400px]">
+      <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
         {loading ? (
-          <div className="flex justify-center py-4"><div className="animate-spin h-4 w-4 border-2 border-blue-600 border-t-transparent rounded-full" /></div>
+          <div className="flex flex-col items-center justify-center py-12 gap-3">
+            <div className="animate-spin h-6 w-6 border-2 border-blue-600 border-t-transparent rounded-full" />
+            <p className="text-xs text-gray-400 font-medium">Yükleniyor...</p>
+          </div>
         ) : filteredReminders.length === 0 ? (
-          <div className="text-center py-6 px-2">
-            <p className="text-[10px] text-gray-400 font-medium">Bu kategoride kayıt yok.</p>
+          <div className="text-center py-16 px-4">
+            <div className="bg-gray-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 border border-dashed border-gray-200">
+              <Check className="h-8 w-8 text-gray-300" />
+            </div>
+            <h3 className="text-sm font-bold text-gray-900 mb-1">Harika!</h3>
+            <p className="text-xs text-gray-500 max-w-[200px] mx-auto">Şu anda aranması gereken herhangi bir müşteri bulunmuyor.</p>
           </div>
         ) : (
-          filteredReminders.map((r) => (
-            <div key={r.id} className={cn("rounded-lg border p-2.5 space-y-1.5 transition-all hover:shadow-sm", getStatusColor(r.reminderAt))}>
-              <div className="flex justify-between items-start gap-1">
-                <div className="min-w-0">
-                  <p className="font-bold text-[11px] truncate uppercase leading-tight">{r.customer?.user?.name}</p>
-                  <p className="text-[9px] opacity-70 font-medium">Sipariş: {r.id.slice(-6).toUpperCase()}</p>
-                </div>
-                {new Date(r.reminderAt).getTime() < now.getTime() && (
-                  <span className="shrink-0 bg-red-500 text-white text-[8px] px-1 py-0.5 rounded font-black uppercase">!</span>
-                )}
-              </div>
-
-              {r.reminderNote && (
-                <p className="text-[10px] leading-tight line-clamp-2 opacity-90 border-l-2 border-current pl-1.5 py-0.5 italic">
-                  {r.reminderNote}
-                </p>
-              )}
-
-              <div className="flex items-center justify-between pt-1 border-t border-black/5">
-                <p className="text-[9px] font-bold uppercase">
-                  {new Date(r.reminderAt).getTime() === now.getTime() ? 'BUGÜN' : formatDate(r.reminderAt)}
-                </p>
-                <div className="flex gap-1">
-                  <button
-                    className="h-6 w-6 rounded bg-green-100 text-green-700 flex items-center justify-center hover:bg-green-600 hover:text-white transition-colors"
-                    onClick={() => markAsDone(r.id)}
-                    title="Arandı"
-                  >
-                    <Check className="h-3 w-3" />
-                  </button>
-                  {r.customer?.phone && (
-                    <a
-                      href={`tel:${r.customer.phone}`}
-                      className="h-6 w-6 rounded bg-blue-600 text-white flex items-center justify-center hover:bg-blue-700 transition-colors shadow-sm"
-                      title="Ara"
-                    >
-                      <Phone className="h-3 w-3" />
-                    </a>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {filteredReminders.map((r) => (
+              <div key={r.id} className={cn(
+                "group relative rounded-2xl border p-4 space-y-3 transition-all hover:shadow-xl hover:-translate-y-0.5",
+                getStatusColor(r.reminderAt).split(' ').slice(0, 3).join(' ') // Get colors but skip some border classes
+              )}>
+                <div className="flex justify-between items-start gap-2">
+                  <div className="min-w-0">
+                    <p className="font-bold text-sm truncate uppercase tracking-tight text-gray-900 group-hover:text-blue-700 transition-colors">
+                      {r.customer?.user?.name}
+                    </p>
+                    <div className="flex items-center gap-1.5 mt-1">
+                      <div className="h-1.5 w-1.5 rounded-full bg-blue-400" />
+                      <p className="text-[10px] text-gray-500 font-medium">Sipariş: #{r.id.slice(-6).toUpperCase()}</p>
+                    </div>
+                  </div>
+                  {new Date(r.reminderAt).getTime() < now.getTime() && (
+                    <span className="shrink-0 bg-red-600 text-white text-[9px] px-2 py-0.5 rounded-full font-black uppercase shadow-sm">Gecikmiş</span>
                   )}
                 </div>
+
+                {r.reminderNote ? (
+                  <div className="bg-white/60 backdrop-blur-sm rounded-xl p-3 text-[11px] font-medium text-gray-700 border border-black/5 shadow-inner">
+                   <p className="italic leading-relaxed line-clamp-3">"{r.reminderNote}"</p>
+                  </div>
+                ) : (
+                  <div className="h-[52px] flex items-center justify-center border border-dashed border-black/5 rounded-xl text-[10px] text-gray-400 italic">
+                    Not girilmemiş
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between pt-2 border-t border-black/5 mt-auto">
+                  <div className="flex flex-col">
+                    <p className="text-[9px] text-gray-500 font-bold uppercase">Hatırlatma</p>
+                    <p className="text-xs font-black">
+                      {new Date(r.reminderAt).getTime() === now.getTime() ? 'BUGÜN' : formatDate(r.reminderAt)}
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-9 w-9 rounded-xl bg-white text-green-600 hover:bg-green-600 hover:text-white transition-all border border-green-100 shadow-sm"
+                      onClick={() => markAsDone(r.id)}
+                      title="Arandı olarak işaretle"
+                    >
+                      <Check className="h-5 w-5" />
+                    </Button>
+                    {r.customer?.phone && (
+                      <a
+                        href={`tel:${r.customer.phone}`}
+                        className="h-9 w-9 rounded-xl bg-blue-600 text-white flex items-center justify-center hover:bg-blue-700 hover:scale-105 active:scale-95 transition-all shadow-md shadow-blue-200"
+                        title="Müşteriyi Ara"
+                      >
+                        <Phone className="h-4 w-4" />
+                      </a>
+                    )}
+                  </div>
+                </div>
               </div>
-            </div>
-          ))
+            ))}
+          </div>
         )}
       </div>
     </div>

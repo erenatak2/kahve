@@ -38,6 +38,7 @@ const navItems: NavItem[] = [
   { href: '/admin/musteriler', label: 'Müşteriler', icon: Users, badgeKey: 'customers' },
   { href: '/admin/siparisler', label: 'Siparişler', icon: ShoppingCart, badgeKey: 'orders' },
   { href: '/admin/tahsilat', label: 'Tahsilat', icon: CreditCard },
+  { href: '/admin/takip', label: 'Aranacaklar', icon: Phone, badgeKey: 'reminders' },
   { href: '/admin/odeme-bildirimler', label: 'Ödeme Bildirimleri', icon: Bell, badgeKey: 'notifications' },
   { href: '/admin/cari-hesaplar', label: 'Cari Hesaplar', icon: FileText },
   { href: '/admin/raporlar', label: 'Raporlar', icon: BarChart3 },
@@ -50,6 +51,7 @@ interface BadgeCounts {
   orders: number
   notifications: number
   customers: number
+  reminders: number
 }
 
 // Ses çalma fonksiyonu - Web Audio API
@@ -96,10 +98,10 @@ const playNotificationSound = () => {
 
 export function AdminSidebar({ user, onClose }: { user: { name?: string; email?: string; role?: string }; onClose?: () => void }) {
   const pathname = usePathname()
-  const [counts, setCounts] = useState<BadgeCounts>({ orders: 0, notifications: 0, customers: 0 })
-  const [seenCounts, setSeenCounts] = useState<BadgeCounts>({ orders: 0, notifications: 0, customers: 0 })
+  const [counts, setCounts] = useState<BadgeCounts>({ orders: 0, notifications: 0, customers: 0, reminders: 0 })
+  const [seenCounts, setSeenCounts] = useState<BadgeCounts>({ orders: 0, notifications: 0, customers: 0, reminders: 0 })
   const [soundEnabled, setSoundEnabled] = useState(true)
-  const prevCounts = useRef<BadgeCounts>({ orders: 0, notifications: 0, customers: 0 })
+  const prevCounts = useRef<BadgeCounts>({ orders: 0, notifications: 0, customers: 0, reminders: 0 })
   const soundEnabledRef = useRef(true)
   
   // LocalStorage'dan görülen sayıları yükle
@@ -125,6 +127,10 @@ export function AdminSidebar({ user, onClose }: { user: { name?: string; email?:
     }
     if (pathname === '/admin/musteriler' && counts.customers > seenCounts.customers) {
       currentSeen.customers = counts.customers
+      updated = true
+    }
+    if (pathname === '/admin/takip' && counts.reminders > seenCounts.reminders) {
+      currentSeen.reminders = counts.reminders
       updated = true
     }
     
@@ -180,8 +186,9 @@ export function AdminSidebar({ user, onClose }: { user: { name?: string; email?:
                 const ordersIncreased = data.orders > prevCounts.current.orders
                 const notificationsIncreased = data.notifications > prevCounts.current.notifications
                 const customersIncreased = data.customers > prevCounts.current.customers
+                const remindersIncreased = data.reminders > prevCounts.current.reminders
                 
-                if ((ordersIncreased || notificationsIncreased || customersIncreased) && soundEnabledRef.current) {
+                if ((ordersIncreased || notificationsIncreased || customersIncreased || remindersIncreased) && soundEnabledRef.current) {
                   playNotificationSound()
                 }
                 
@@ -268,10 +275,6 @@ export function AdminSidebar({ user, onClose }: { user: { name?: string; email?:
           )
         })}
       </nav>
-
-      <div className="mt-auto">
-        <ReminderList />
-      </div>
 
       <div className="p-4 border-t">
         <div className="mb-3 px-3">
