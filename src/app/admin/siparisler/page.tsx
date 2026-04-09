@@ -270,6 +270,8 @@ export default function SiparislerPage() {
                 </div>`; 
             }); 
             const total = hazirlaniyor.reduce((s: number, o: any) => s + o.totalAmount, 0); 
+            const araToplam = total / 1.2;
+            const kdvTutari = total - araToplam;
             w.document.write(`
               <!DOCTYPE html>
               <html>
@@ -281,7 +283,7 @@ export default function SiparislerPage() {
                   body { font-family: 'Inter', sans-serif; padding: 20px; margin: 0; color: #1e293b; background: #fff; }
                   .header { text-align: center; margin-bottom: 20px; border-bottom: 2px solid #0f172a; padding-bottom: 10px; }
                   .header h2 { margin: 0; font-size: 18px; font-weight: 900; text-transform: uppercase; letter-spacing: 1px; }
-                  .meta { display: flex; justify-content: center; gap: 15px; margin-top: 6px; font-size: 11px; font-weight: 700; color: #64748b; }
+                  .meta { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 6px; font-size: 10px; font-weight: 700; color: #64748b; }
                   .sum-box { color: #0f172a; border: 1px solid #e2e8f0; padding: 1px 8px; border-radius: 99px; }
                   .grid-container { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
                   @media print { 
@@ -297,7 +299,9 @@ export default function SiparislerPage() {
                   <div class='meta'>
                     <span>TARİH: ${new Date().toLocaleDateString('tr-TR')}</span>
                     <span>ADET: ${hazirlaniyor.length}</span>
-                    <span class='sum-box'>TOPLAM: ${total.toLocaleString('tr-TR', {style:'currency',currency:'TRY',minimumFractionDigits:0})}</span>
+                    <span class='sum-box'>ARA TOPLAM: ${araToplam.toLocaleString('tr-TR', {style:'currency',currency:'TRY',minimumFractionDigits:2})}</span>
+                    <span class='sum-box'>KDV (%20): ${kdvTutari.toLocaleString('tr-TR', {style:'currency',currency:'TRY',minimumFractionDigits:2})}</span>
+                    <span class='sum-box' style='background:#f1f5f9'>GENEL TOPLAM: ${total.toLocaleString('tr-TR', {style:'currency',currency:'TRY',minimumFractionDigits:0})}</span>
                   </div>
                 </div>
                 <div class='grid-container'>${html}</div>
@@ -379,9 +383,19 @@ export default function SiparislerPage() {
                       </div>
                     )
                   })}
-                  <div className="border-t pt-2 flex justify-between font-bold">
-                    <span>Toplam</span>
-                    <span>{formatCurrency(items.reduce((s, i) => s + i.unitPrice * i.quantity, 0))}</span>
+                  <div className="border-t pt-2 space-y-1">
+                    <div className="flex justify-between text-xs text-gray-500">
+                      <span>Ara Toplam</span>
+                      <span>{formatCurrency(items.reduce((s, i) => s + i.unitPrice * i.quantity, 0) / 1.2)}</span>
+                    </div>
+                    <div className="flex justify-between text-xs text-gray-500">
+                      <span>KDV (%20)</span>
+                      <span>{formatCurrency(items.reduce((s, i) => s + i.unitPrice * i.quantity, 0) - (items.reduce((s, i) => s + i.unitPrice * i.quantity, 0) / 1.2))}</span>
+                    </div>
+                    <div className="flex justify-between font-bold text-blue-600">
+                      <span>Genel Toplam</span>
+                      <span>{formatCurrency(items.reduce((s, i) => s + i.unitPrice * i.quantity, 0))}</span>
+                    </div>
                   </div>
                 </div>
               )}
@@ -422,12 +436,6 @@ export default function SiparislerPage() {
                       <div className="min-w-0">
                         <p className="font-semibold text-sm truncate flex items-center gap-2">
                           {o.customer?.user?.name}
-                          {o.customer?.salesRep && (
-                            <span className="text-[10px] whitespace-nowrap font-normal bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded-full border border-gray-200 flex items-center gap-1">
-                              <Users2 className="h-2.5 w-2.5 text-gray-400" />
-                              Satıcı: {o.customer.salesRep.name}
-                            </span>
-                          )}
                         </p>
                         {o.orderNumber && <p className="text-[11px] font-mono text-blue-600">{o.orderNumber}</p>}
                         {editDate?.id === o.id ? (
@@ -470,13 +478,14 @@ export default function SiparislerPage() {
                       {/* Desktop amount + status */}
                       <div className="hidden sm:flex items-center gap-2 mr-1">
                         <div className="text-right">
-                          <p className="font-bold text-sm">{formatCurrency(o.totalAmount)}</p>
+                          <p className="font-bold text-base text-slate-900 leading-none">{formatCurrency(o.totalAmount)}</p>
+                          <p className="text-[11px] font-semibold text-slate-600 mt-1 uppercase tracking-tighter bg-slate-100 px-1.5 py-0.5 rounded inline-block">KDV Dahil</p>
                           {paidAmount > 0 && paidAmount < o.totalAmount ? (
-                            <p className="text-xs text-red-500">Kalan: {formatCurrency(o.totalAmount - paidAmount)}</p>
+                            <p className="text-xs font-bold text-red-600 mt-1">Kalan: {formatCurrency(o.totalAmount - paidAmount)}</p>
                           ) : paidAmount >= o.totalAmount && o.totalAmount > 0 ? (
-                            <p className="text-xs text-green-600">Ödendi</p>
+                            <p className="text-xs font-bold text-green-700 mt-1 flex items-center justify-end gap-1">TAM ÖDENDİ ✓</p>
                           ) : (
-                            <p className="text-xs text-gray-400">Ödeme yok</p>
+                            <p className="text-xs font-semibold text-slate-500 mt-1">Bakiye: {formatCurrency(o.totalAmount)}</p>
                           )}
                         </div>
                         <span className={`text-xs px-2 py-1 rounded-full ${ORDER_STATUS_COLOR[o.status] || 'bg-gray-100'}`}>
@@ -521,6 +530,20 @@ export default function SiparislerPage() {
                             <span className="font-medium">{formatCurrency(item.total)}</span>
                           </div>
                         ))}
+                        <div className="mt-4 pt-3 border-t space-y-2 bg-slate-100/80 p-4 rounded-xl border border-slate-200 shadow-sm">
+                          <div className="flex justify-between text-[13px] text-slate-700 font-medium">
+                            <span>Sipariş Ara Toplamı (KDV Hariç)</span>
+                            <span>{formatCurrency(o.totalAmount / 1.2)}</span>
+                          </div>
+                          <div className="flex justify-between text-[13px] text-slate-700 font-medium">
+                            <span>Hesaplanan KDV (%20)</span>
+                            <span>{formatCurrency(o.totalAmount - (o.totalAmount / 1.2))}</span>
+                          </div>
+                          <div className="flex justify-between text-base font-bold text-blue-800 border-t border-slate-200 pt-2 mt-1">
+                            <span>Genel Toplam (KDV Dahil)</span>
+                            <span>{formatCurrency(o.totalAmount)}</span>
+                          </div>
+                        </div>
                       </div>
 
                       {o.status === 'TESLIM_EDILDI' && (
@@ -818,9 +841,19 @@ export default function SiparislerPage() {
                     </div>
                   </div>
                   
-                  <div className="border-t pt-3 flex justify-between items-center">
-                    <span className="font-semibold">Toplam Tutar</span>
-                    <span className="text-xl font-bold text-blue-600">{formatCurrency(order.totalAmount)}</span>
+                  <div className="border-t pt-3 space-y-1">
+                    <div className="flex justify-between text-sm text-gray-500">
+                      <span>Ara Toplam</span>
+                      <span>{formatCurrency(order.totalAmount / 1.2)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm text-gray-500">
+                      <span>KDV (%20)</span>
+                      <span>{formatCurrency(order.totalAmount - (order.totalAmount / 1.2))}</span>
+                    </div>
+                    <div className="flex justify-between items-center font-bold">
+                      <span className="text-gray-900">Genel Toplam</span>
+                      <span className="text-xl text-blue-600">{formatCurrency(order.totalAmount)}</span>
+                    </div>
                   </div>
                 </div>
 

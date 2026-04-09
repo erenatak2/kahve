@@ -238,7 +238,6 @@ export default function TahsilatPage() {
         <div>
           <h1 className="text-xl md:text-2xl font-bold text-gray-900 flex items-center gap-2">
             Tahsilat
-            <span className="text-[10px] bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full font-normal">GÜNCEL v4</span>
           </h1>
           <p className="text-gray-500 text-sm">Ödeme takibi ve tahsilat yönetimi</p>
         </div>
@@ -257,7 +256,7 @@ export default function TahsilatPage() {
           <CardContent className="pt-4 pb-4 px-3 md:pt-6">
             <div className="flex items-center gap-2">
               <div className="bg-yellow-50 p-1.5 md:p-2 rounded-lg shrink-0"><Clock className="h-4 w-4 md:h-5 md:w-5 text-yellow-600" /></div>
-              <div className="min-w-0"><p className="text-xs text-gray-500">Bekleyen</p><p className="font-bold text-sm md:text-lg truncate">{formatCurrency(totalBekliyor)}</p></div>
+              <div className="min-w-0"><p className="text-xs text-gray-500">Bekleyen (KDVli)</p><p className="font-bold text-sm md:text-lg truncate">{formatCurrency(totalBekliyor)}</p></div>
             </div>
           </CardContent>
         </Card>
@@ -265,7 +264,7 @@ export default function TahsilatPage() {
           <CardContent className="pt-4 pb-4 px-3 md:pt-6">
             <div className="flex items-center gap-2">
               <div className="bg-green-50 p-1.5 md:p-2 rounded-lg shrink-0"><CheckCircle className="h-4 w-4 md:h-5 md:w-5 text-green-600" /></div>
-              <div className="min-w-0"><p className="text-xs text-gray-500">Tahsil</p><p className="font-bold text-sm md:text-lg truncate">{formatCurrency(totalOdendi)}</p></div>
+              <div className="min-w-0"><p className="text-xs text-gray-500">Tahsil (KDVli)</p><p className="font-bold text-sm md:text-lg truncate">{formatCurrency(totalOdendi)}</p></div>
             </div>
           </CardContent>
         </Card>
@@ -273,7 +272,7 @@ export default function TahsilatPage() {
           <CardContent className="pt-4 pb-4 px-3 md:pt-6">
             <div className="flex items-center gap-2">
               <div className="bg-red-50 p-1.5 md:p-2 rounded-lg shrink-0"><AlertCircle className="h-4 w-4 md:h-5 md:w-5 text-red-600" /></div>
-              <div className="min-w-0"><p className="text-xs text-gray-500">Gecikmiş</p><p className="font-bold text-sm md:text-lg truncate">{formatCurrency(totalGecikti)}</p></div>
+              <div className="min-w-0"><p className="text-xs text-gray-500">Gecikmiş (KDVli)</p><p className="font-bold text-sm md:text-lg truncate">{formatCurrency(totalGecikti)}</p></div>
             </div>
           </CardContent>
         </Card>
@@ -357,9 +356,14 @@ export default function TahsilatPage() {
                     <div className="flex items-center gap-8 shrink-0">
                       {/* Ödeme Özeti */}
                       <div className="text-right flex flex-col justify-center min-w-[160px] gap-1">
-                        <div className="flex items-center justify-end gap-2 text-slate-500">
-                          <span className="text-[10px] font-bold uppercase">Toplam:</span>
-                          <span className="text-sm font-bold">{formatCurrency(p.totalDebt || p.amount)}</span>
+                        <div className="flex items-center justify-end gap-2 text-slate-800">
+                          <span className="text-[11px] font-bold uppercase tracking-tight">Toplam Sipariş Tutarı:</span>
+                          <span className="text-base font-bold">{formatCurrency(p.totalDebt || p.amount)}</span>
+                        </div>
+                        <div className="flex justify-end bg-slate-100/50 px-2 py-1 rounded border border-slate-200/50 text-[10px] text-slate-600 gap-3 font-semibold mt-0.5">
+                          <span>Ara Toplam: {formatCurrency((p.totalDebt || p.amount) / 1.2)}</span>
+                          <span className="text-slate-400 font-normal">|</span>
+                          <span>KDV (%20): {formatCurrency((p.totalDebt || p.amount) - ((p.totalDebt || p.amount) / 1.2))}</span>
                         </div>
                         
                         <div className="flex flex-col items-end">
@@ -418,12 +422,12 @@ export default function TahsilatPage() {
                           </div>
                         </div>
 
-                        <div className="pt-1 mt-1 border-t border-slate-100 flex items-center justify-end gap-2">
-                          <span className={`text-[10px] font-black uppercase ${remaining > 0.01 ? 'text-red-500' : 'text-green-600'}`}>
-                            {remaining > 0.01 ? 'Kalan Borç:' : 'Bakiye Kapandı'}
+                        <div className="pt-1.5 mt-1.5 border-t-2 border-slate-100 flex items-center justify-end gap-2">
+                          <span className={`text-[11px] font-bold uppercase tracking-tighter ${remaining > 0.01 ? 'text-red-700' : 'text-green-700'}`}>
+                            {remaining > 0.01 ? 'KALAN BORÇ:' : '✓ ÖDEME TAMAMLANDI'}
                           </span>
                           {remaining > 0.01 && (
-                            <span className="text-sm font-black text-red-600 tracking-tight">
+                            <span className="text-base font-bold text-red-700 tracking-tighter">
                               {formatCurrency(remaining)}
                             </span>
                           )}
