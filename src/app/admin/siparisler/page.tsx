@@ -580,57 +580,59 @@ export default function SiparislerPage() {
                               </div>
                             </div>
                           ) : (
-                            <div className="grid grid-cols-12 gap-3">
-                              <div className="col-span-5 space-y-1">
-                                <Label className="text-[10px] text-orange-700">Tarih</Label>
-                                <Input 
-                                  type="date" 
-                                  className="h-8 text-xs bg-white border-orange-200 focus:ring-orange-500" 
-                                  value={reminderEdit.date} 
-                                  onChange={e => {
-                                    const newDate = e.target.value
-                                    setReminderEdit({
-                                      ...reminderEdit, 
-                                      date: newDate, 
-                                      days: getDaysDiff(newDate)
-                                    })
-                                  }}
-                                />
+                            <>
+                              <div className="grid grid-cols-12 gap-3">
+                                <div className="col-span-5 space-y-1">
+                                  <Label className="text-[10px] text-orange-700">Tarih</Label>
+                                  <Input 
+                                    type="date" 
+                                    className="h-8 text-xs bg-white border-orange-200 focus:ring-orange-500" 
+                                    value={reminderEdit.date} 
+                                    onChange={e => {
+                                      const newDate = e.target.value
+                                      setReminderEdit({
+                                        ...reminderEdit, 
+                                        date: newDate, 
+                                        days: getDaysDiff(newDate)
+                                      })
+                                    }}
+                                  />
+                                </div>
+                                <div className="col-span-2 space-y-1">
+                                  <Label className="text-[10px] text-orange-700">Gün</Label>
+                                  <Input 
+                                    type="number" 
+                                    placeholder="0"
+                                    className="h-8 text-xs bg-white border-orange-200 focus:ring-orange-500" 
+                                    value={reminderEdit.days} 
+                                    onChange={e => {
+                                      const days = parseInt(e.target.value)
+                                      setReminderEdit({
+                                        ...reminderEdit, 
+                                        days: e.target.value,
+                                        date: getDateAfterDays(days)
+                                      })
+                                    }}
+                                  />
+                                </div>
+                                <div className="col-span-5 space-y-1">
+                                  <Label className="text-[10px] text-orange-700">Takip Notu</Label>
+                                  <Input 
+                                    placeholder="Hatırlatma notu..." 
+                                    className="h-8 text-xs bg-white border-orange-200 focus:ring-orange-500"
+                                    value={reminderEdit.note}
+                                    onChange={e => setReminderEdit({...reminderEdit, note: e.target.value})}
+                                  />
+                                </div>
                               </div>
-                              <div className="col-span-2 space-y-1">
-                                <Label className="text-[10px] text-orange-700">Gün</Label>
-                                <Input 
-                                  type="number" 
-                                  placeholder="0"
-                                  className="h-8 text-xs bg-white border-orange-200 focus:ring-orange-500" 
-                                  value={reminderEdit.days} 
-                                  onChange={e => {
-                                    const days = parseInt(e.target.value)
-                                    setReminderEdit({
-                                      ...reminderEdit, 
-                                      days: e.target.value,
-                                      date: getDateAfterDays(days)
-                                    })
-                                  }}
-                                />
-                              </div>
-                              <div className="col-span-5 space-y-1">
-                                <Label className="text-[10px] text-orange-700">Takip Notu</Label>
-                                <Input 
-                                  placeholder="Hatırlatma notu..." 
-                                  className="h-8 text-xs bg-white border-orange-200 focus:ring-orange-500"
-                                  value={reminderEdit.note}
-                                  onChange={e => setReminderEdit({...reminderEdit, note: e.target.value})}
-                                />
-                              </div>
-                            </div>
-                            {reminderEdit.date && (
-                              <p className="text-[9px] text-orange-500 text-right">
-                                {parseInt(reminderEdit.days) === 0 ? 'Bugün aranacak' : 
-                                 parseInt(reminderEdit.days) > 0 ? `${reminderEdit.days} gün sonra aranacak` : 
-                                 'Geçmiş bir tarih'}
-                              </p>
-                            )}
+                              {reminderEdit.date && (
+                                <p className="text-[9px] text-orange-500 text-right">
+                                  {parseInt(reminderEdit.days) === 0 ? 'Bugün aranacak' : 
+                                   parseInt(reminderEdit.days) > 0 ? `${reminderEdit.days} gün sonra aranacak` : 
+                                   'Geçmiş bir tarih'}
+                                </p>
+                              )}
+                            </>
                           )}
                         </div>
                       )}
