@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/components/ui/use-toast'
-import { Users, UserPlus, Eye, EyeOff, Trash2, ShieldCheck, User, Edit, UserCog, TrendingUp, ShoppingBag, UserCheck, ChevronDown, ChevronUp, Clock, Target, Package, ListChecks, ArrowRight } from 'lucide-react'
+import { Users, UserPlus, Eye, EyeOff, Trash2, ShieldCheck, User, Edit, UserCog, TrendingUp, ShoppingBag, UserCheck, ChevronDown, ChevronUp, Clock, Target, Package, ListChecks, ArrowRight, Check, X } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { formatCurrency, formatDate, ORDER_STATUS_COLOR, ORDER_STATUS } from '@/lib/utils'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
@@ -25,6 +25,7 @@ export default function EkipYonetimiPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
+  const [pendingAssignments, setPendingAssignments] = useState<Record<string, string>>({})
   const { toast } = useToast()
   const router = useRouter()
 
@@ -106,6 +107,30 @@ export default function EkipYonetimiPage() {
         router.refresh()
       } else {
         toast({ title: 'Hata', description: data.error || 'Silinemedi.', variant: 'destructive' })
+      }
+    } catch (error) {
+      toast({ title: 'Hata', description: 'Bağlantı hatası.', variant: 'destructive' })
+    }
+  }
+
+  const handleQuickAssign = async (customerId: string, salesRepId: string) => {
+    if (!salesRepId) return
+    try {
+      const res = await fetch(`/api/musteriler/${customerId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ salesRepId }),
+      })
+      if (res.ok) {
+        toast({ title: 'Başarılı', description: 'Müşteri yeni satıcıya aktarıldı.' })
+        fetchTeam() // Refresh everything
+        setPendingAssignments(prev => {
+          const next = { ...prev }
+          delete next[customerId]
+          return next
+        })
+      } else {
+        toast({ title: 'Hata', description: 'Atama yapılamadı.', variant: 'destructive' })
       }
     } catch (error) {
       toast({ title: 'Hata', description: 'Bağlantı hatası.', variant: 'destructive' })
@@ -317,17 +342,55 @@ export default function EkipYonetimiPage() {
                         <TableHead>Müşteri Adı</TableHead>
                         <TableHead className="text-center">Sipariş</TableHead>
                         <TableHead className="text-right">T. Ciro</TableHead>
+                        <TableHead className="text-right">Satıcı Değiştir</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {selectedMember?.stats?.customerDetails?.length === 0 ? (
-                        <TableRow><TableCell colSpan={3} className="text-center py-8 text-gray-500 italic">Müşteri yok.</TableCell></TableRow>
+                        <TableRow><TableCell colSpan={4} className="text-center py-8 text-gray-500 italic">Müşteri yok.</TableCell></TableRow>
                       ) : (
                         selectedMember?.stats?.customerDetails.map((cust: any) => (
                           <TableRow key={cust.id}>
                             <TableCell className="font-medium text-gray-700">{cust.name}</TableCell>
                             <TableCell className="text-center">{cust.orderCount}</TableCell>
                             <TableCell className="text-right font-bold text-emerald-600">{formatCurrency(cust.totalSales)}</TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex items-center justify-end gap-1">
+                                <select 
+                                  className="text-[10px] h-6 rounded border border-gray-200 bg-gray-50 px-1 focus:ring-1 focus:ring-blue-500"
+                                  onChange={(e) => setPendingAssignments(prev => ({ ...prev, [cust.id]: e.target.value }))}
+                                  value={pendingAssignments[cust.id] || ""}
+                                >
+                                  <option value="" disabled>Seç...</option>
+                                  {team.map((s: any) => (
+                                    <option key={s.id} value={s.id}>{s.name} {s.id === selectedMember.id ? '(Şu anki)' : ''}</option>
+                                  ))}
+                                </select>
+                                {pendingAssignments[cust.id] && pendingAssignments[cust.id] !== selectedMember.id && (
+                                  <div className="flex items-center gap-1">
+                                    <Button 
+                                      size="sm" 
+                                      className="h-6 w-6 p-0 bg-green-600 hover:bg-green-700 text-white" 
+                                      onClick={() => handleQuickAssign(cust.id, pendingAssignments[cust.id])}
+                                    >
+                                      <Check className="h-3 w-3" />
+                                    </Button>
+                                    <Button 
+                                      size="sm" 
+                                      variant="ghost"
+                                      className="h-6 w-6 p-0 text-gray-400 hover:text-red-600" 
+                                      onClick={() => setPendingAssignments(prev => {
+                                        const next = { ...prev }
+                                        delete next[cust.id]
+                                        return next
+                                      })}
+                                    >
+                                      <X className="h-3 w-3" />
+                                    </Button>
+                                  </div>
+                                )}
+                              </div>
+                            </TableCell>
                           </TableRow>
                         ))
                       )}
