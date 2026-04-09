@@ -16,14 +16,7 @@ export async function GET() {
   
   if (role === 'SATICI') {
     whereClause.salesRepId = (session.user as any).id
-  } else if (role === 'ADMIN') {
-    // Adminler:
-    // 1. Kendilerine atanmış müşterileri görür
-    // 2. Hiç kimseye atanmamış (mevcut/yöneticinin) müşterileri görür (salesRepId: null)
-    whereClause.OR = [
-      { salesRepId: (session.user as any).id },
-      { salesRepId: null }
-    ]
+    whereClause.isApproved = true // Sadece onaylanmış müşteriler satıcı panelinde gözükür
   }
 
   const customers = await prisma.customer.findMany({

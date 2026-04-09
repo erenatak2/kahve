@@ -35,14 +35,7 @@ export async function GET(req: NextRequest) {
   } else if (role === 'SATICI') {
     where.customer = { salesRepId: (session.user as any).id }
     if (filterCustomerId) where.customerId = filterCustomerId
-  } else if (role === 'ADMIN') {
-    // Adminler hem kendilerine atanmış siparişleri hem de sahipsiz (yönetici/mevcut) siparişleri görür
-    where.customer = {
-      OR: [
-        { salesRepId: (session.user as any).id },
-        { salesRepId: null }
-      ]
-    }
+  } else {
     if (filterCustomerId) where.customerId = filterCustomerId
   }
 

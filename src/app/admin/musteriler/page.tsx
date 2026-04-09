@@ -11,6 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { useToast } from '@/components/ui/use-toast'
+import { Switch } from '@/components/ui/switch'
 import { formatCurrency } from '@/lib/utils'
 
 export default function MusterilerPage() {
@@ -19,6 +20,8 @@ export default function MusterilerPage() {
   const [customers, setCustomers] = useState<any[]>([])
   const [products, setProducts] = useState<any[]>([])
   const [staff, setStaff] = useState<any[]>([])
+  const [onlyMyCustomers, setOnlyMyCustomers] = useState(false)
+  const [activeTab, setActiveTab] = useState<'approved' | 'pending'>('approved')
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [showAddDialog, setShowAddDialog] = useState(false)
@@ -253,11 +256,19 @@ export default function MusterilerPage() {
   }
 
   const filtered = customers.filter((c: any) => {
+    const isApprovedMatch = activeTab === 'approved' ? c.isApproved : !c.isApproved
+    if (!isApprovedMatch) return false
+
     const searchMatch = 
       c.user?.name?.toLowerCase().includes(search.toLowerCase()) ||
       c.user?.email?.toLowerCase().includes(search.toLowerCase())
-    return searchMatch
+    
+    const isMyCustomer = activeTab === 'pending' || !onlyMyCustomers || c.salesRepId === (session?.user as any)?.id
+
+    return searchMatch && isMyCustomer
   })
+
+  const pendingCount = customers.filter(c => !c.isApproved).length
 
   return (
     <div className="p-4 md:p-6 space-y-4">
@@ -267,9 +278,41 @@ export default function MusterilerPage() {
             <h1 className="text-xl md:text-2xl font-bold text-gray-900">Müşteriler</h1>
             <p className="text-gray-500 text-sm">{customers.length} müşteri kayıtlı</p>
           </div>
+          {session?.user?.role === 'ADMIN' && (
+            <div className="flex items-center gap-2 bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100 shadow-sm transition-all hover:bg-blue-100">
+              <Switch 
+                id="my-customers" 
+                checked={onlyMyCustomers} 
+                onCheckedChange={setOnlyMyCustomers}
+              />
+              <Label htmlFor="my-customers" className="text-[11px] font-semibold text-blue-800 cursor-pointer flex items-center gap-1.5 whitespace-nowrap">
+                {onlyMyCustomers ? <UserCheck className="h-3 w-3" /> : <Users2 className="h-3 w-3" />}
+                Sadece Benim Müşterilerim
+              </Label>
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-2">
-,StartLine:268,TargetContent:          <Button onClick={() => setShowAddDialog(true)}><Plus className="mr-2 h-4 w-4" />Yeni Müşteri</Button>
+          <div className="flex bg-gray-100 p-1 rounded-lg">
+            <button 
+              onClick={() => setActiveTab('approved')}
+              className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${activeTab === 'approved' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+            >
+              Onaylılar
+            </button>
+            <button 
+              onClick={() => setActiveTab('pending')}
+              className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all flex items-center gap-1.5 ${activeTab === 'pending' ? 'bg-white text-orange-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+            >
+              Onay Bekleyenler
+              {pendingCount > 0 && (
+                <span className="flex h-4 w-4 items-center justify-center rounded-full bg-orange-500 text-[10px] text-white">
+                  {pendingCount}
+                </span>
+              )}
+            </button>
+          </div>
+          <Button onClick={() => setShowAddDialog(true)}><Plus className="mr-2 h-4 w-4" />Yeni Müşteri</Button>
         </div>
       </div>
 
@@ -344,18 +387,44 @@ export default function MusterilerPage() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-2">
-                        <>
-                            <Button variant="outline" size="icon" className="h-8 w-8 text-blue-600 border-blue-100 hover:bg-blue-50" onClick={() => handleOpenPricing(c)} title="Özel Fiyatlar">
+                        {activeTab === 'pending' ? (
+                          <Button 
+                            variant="default" 
+                            size="sm" 
+                            className="bg-orange-600 hover:bg-orange-700 h-8"
+                            onClick={() => {
+                              setSelectedCustomer(c)
+                              setEditForm({
+                                name: c.user.name,
+                                phone: c.phone || '',
+                                address: c.address || '',
+                                shippingAddress: c.shippingAddress || '',
+                                city: c.city || 'İstanbul',
+                                taxNumber: c.taxNumber || '',
+                                discountRate: c.discountRate?.toString() || '0',
+                                notes: c.notes || '',
+                                salesRepId: c.salesRepId || '',
+                              })
+                              setShowEditDialog(true)
+                            }}
+                          >
+                            <UserCheck className="h-4 w-4 mr-1.5" /> İncele & Onayla
+                          </Button>
+                        ) : (
+                          <>
+                            <Button variant="outline" size="sm" onClick={() => handleOpenPricing(c)} className="gap-1">
                               <DollarSign className="h-4 w-4" />
+                              <span className="hidden sm:inline">Özel Fiyatlar</span>
+                              {specialPriceCount > 0 && (
+                                <span className="bg-blue-600 text-white text-[10px] px-1.5 py-0.5 rounded-full">{specialPriceCount}</span>
+                              )}
                             </Button>
-                            <Button variant="outline" size="icon" className="h-8 w-8 text-gray-600 border-gray-100 hover:bg-gray-50" onClick={() => handleEditCustomer(c)} title="Düzenle">
-                              <Pencil className="h-4 w-4" />
+                            <Button variant="ghost" size="icon" onClick={() => handleEditCustomer(c)}><Pencil className="h-4 w-4 text-blue-600" /></Button>
+                            <Button variant="ghost" size="icon" onClick={() => { setExportDialog({ customerId: c.id, name: c.user?.name || '' }); setExportRange({ startDate: '', endDate: '' }) }} className="gap-1" title="Excel İndir">
+                              <FileSpreadsheet className="h-4 w-4 text-green-600" />
                             </Button>
-                            <Button variant="outline" size="icon" className="h-8 w-8 text-orange-600 border-orange-100 hover:bg-orange-50" onClick={() => setExportDialog({ customerId: c.id, name: c.user?.name || '' })} title="Excel Aktar">
-                              <FileSpreadsheet className="h-4 w-4" />
-                            </Button>
-                        
-                        </>
+                          </>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
@@ -777,19 +846,36 @@ export default function MusterilerPage() {
               </div>
 
               {session?.user?.role === 'ADMIN' && (
-                <div className="col-span-1 sm:col-span-2 space-y-2 py-2 border-t">
-                  <Label className="text-xs text-gray-500 uppercase tracking-wider font-bold">Sorumlu Plasiyer</Label>
-                  <select 
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 transition-all hover:border-blue-300"
-                    value={editForm.salesRepId}
-                    onChange={e => setEditForm({...editForm, salesRepId: e.target.value})}
-                  >
-                    <option value="">Plasiyer seçin (Boş bırakılırsa yetkisiz kalır)</option>
-                    {staff.map((s: any) => (
-                      <option key={s.id} value={s.id}>{s.name} ({s.role})</option>
-                    ))}
-                  </select>
-                </div>
+                <>
+                  <div className="col-span-1 sm:col-span-2 space-y-2 pt-2 border-t">
+                    <Label className="text-xs text-gray-500 uppercase tracking-wider font-bold">Kayıt Onayı & Plasiyer Atama</Label>
+                    <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-100">
+                      <div className="space-y-0.5">
+                        <Label htmlFor="approve-customer" className="text-sm font-medium cursor-pointer">Müşteriyi Onayla</Label>
+                        <p className="text-[10px] text-gray-500">Onaylanan müşteri sisteme giriş yapabilir ve sipariş verebilir.</p>
+                      </div>
+                      <Switch 
+                        id="approve-customer" 
+                        checked={selectedCustomer?.isApproved || false} 
+                        onCheckedChange={(checked) => setSelectedCustomer({...selectedCustomer, isApproved: checked})}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="col-span-1 sm:col-span-2 space-y-2">
+                    <Label className="text-xs text-gray-500 uppercase tracking-wider">Sorumlu Plasiyer</Label>
+                    <select 
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 transition-all hover:border-blue-300"
+                      value={editForm.salesRepId}
+                      onChange={e => setEditForm({...editForm, salesRepId: e.target.value})}
+                    >
+                      <option value="">Plasiyer seçin (Boş bırakılırsa yetkisiz kalır)</option>
+                      {staff.map((s: any) => (
+                        <option key={s.id} value={s.id}>{s.name} ({s.role})</option>
+                      ))}
+                    </select>
+                  </div>
+                </>
               )}
             </div>
             <div className="border-t pt-4 space-y-3">
