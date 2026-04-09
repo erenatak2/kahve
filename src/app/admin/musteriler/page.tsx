@@ -335,43 +335,30 @@ export default function MusterilerPage() {
                   <TableRow key={c.id}>
                     <TableCell>
                       <div>
-                        <p className="font-medium flex items-center gap-1.5">
+                        <p className="font-medium flex items-center gap-1.5 line-clamp-1">
                           {c.user?.name}
-                          {!c.salesRep && (session?.user as any)?.role === 'ADMIN' ? (
-                            <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                          {!c.salesRep && (session?.user as any)?.role === 'ADMIN' && (
+                            <div className="flex items-center gap-1 ml-2" onClick={e => e.stopPropagation()}>
                               <select 
-                                className="text-xs h-7 rounded-lg border-gray-200 bg-white px-2 focus:ring-2 focus:ring-blue-500 shadow-sm transition-all outline-none font-medium text-gray-700 hover:border-blue-400 cursor-pointer w-32"
+                                className="text-xs h-7 rounded-lg border-gray-300 bg-white px-2 focus:ring-2 focus:ring-blue-500 shadow-sm transition-all outline-none font-medium text-gray-700 hover:border-gray-400 cursor-pointer"
                                 onChange={(e) => setPendingAssignments(prev => ({ ...prev, [c.id]: e.target.value }))}
                                 value={pendingAssignments[c.id] || ""}
                               >
-                                <option value="" disabled></option>
+                                <option value="" disabled>Satıcı Ata</option>
                                 {staff.map((s: any) => (
                                   <option key={s.id} value={s.id}>{s.name}</option>
                                 ))}
                               </select>
-                              {pendingAssignments[c.id] ? (
+                              {pendingAssignments[c.id] && (
                                 <Button 
                                   size="sm" 
-                                  className="h-6 w-6 p-0 bg-green-600 hover:bg-green-700 text-white" 
-                                  onClick={() => {
-                                    handleQuickAssign(c.id, pendingAssignments[c.id])
-                                    setPendingAssignments(prev => {
-                                      const next = { ...prev }
-                                      delete next[c.id]
-                                      return next
-                                    })
-                                  }}
+                                  className="h-7 w-7 p-0 bg-green-500 hover:bg-green-600 text-white shadow-sm" 
+                                  onClick={() => handleQuickAssign(c.id, pendingAssignments[c.id])}
                                 >
-                                  <Check className="h-3 w-3" />
+                                  <Check className="h-4 w-4" />
                                 </Button>
-                              ) : (
-                                <span className="animate-pulse flex h-1.5 w-1.5 rounded-full bg-orange-500"></span>
                               )}
                             </div>
-                          ) : (
-                            <span className="text-[10px] bg-red-50 text-red-600 px-1.5 py-0.5 rounded-full border border-red-100">
-                              Atama Bekliyor
-                            </span>
                           )}
                         </p>
                         <p className="text-xs text-gray-500 md:hidden">{c.user?.email}</p>
