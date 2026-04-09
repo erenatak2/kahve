@@ -425,7 +425,7 @@ export default function SiparislerPage() {
                           {o.customer?.salesRep && (
                             <span className="text-[10px] whitespace-nowrap font-normal bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded-full border border-gray-200 flex items-center gap-1">
                               <Users2 className="h-2.5 w-2.5 text-gray-400" />
-                              Plasiyer: {o.customer.salesRep.name}
+                              Satıcı: {o.customer.salesRep.name}
                             </span>
                           )}
                         </p>

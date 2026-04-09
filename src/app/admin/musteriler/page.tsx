@@ -314,7 +314,7 @@ export default function MusterilerPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Müşteri / Plasiyer</TableHead>
+                <TableHead>Müşteri / Satıcı</TableHead>
                 <TableHead className="hidden md:table-cell">İletişim</TableHead>
                 <TableHead className="hidden lg:table-cell text-right">Sipariş</TableHead>
                 <TableHead className="hidden lg:table-cell text-right">Ciro</TableHead>
@@ -345,7 +345,7 @@ export default function MusterilerPage() {
                                 onChange={(e) => handleQuickAssign(c.id, e.target.value)}
                                 value=""
                               >
-                                <option value="" disabled>Plasiyer Ata...</option>
+                                <option value="" disabled>Satıcı Ata...</option>
                                 {staff.map((s: any) => (
                                   <option key={s.id} value={s.id}>{s.name}</option>
                                 ))}
@@ -611,18 +611,18 @@ export default function MusterilerPage() {
 
               {(session?.user as any)?.role === 'ADMIN' && (
                 <div className="col-span-1 sm:col-span-2 space-y-2 pt-2 border-t">
-                  <Label className="text-xs text-gray-500 uppercase tracking-wider">Sorumlu Plasiyer Atama</Label>
+                  <Label className="text-xs text-gray-500 uppercase tracking-wider">Sorumlu Satıcı Atama</Label>
                   <select 
                     className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
                     value={form.salesRepId}
                     onChange={e => setForm({...form, salesRepId: e.target.value})}
                   >
-                    <option value="">Plasiyer seçin (Boş bırakılırsa atanmaz)</option>
+                    <option value="">Satıcı seçin (Boş bırakılırsa atanmaz)</option>
                     {staff.map((s: any) => (
                       <option key={s.id} value={s.id}>{s.name} ({s.role})</option>
                     ))}
                   </select>
-                  <p className="text-[10px] text-gray-400">Bu müşteri sadece atanan plasiyerin ekranında görünecektir.</p>
+                  <p className="text-[10px] text-gray-400">Bu müşteri sadece atanan satıcının ekranında görünecektir.</p>
                 </div>
               )}
             </div>
@@ -826,13 +826,13 @@ export default function MusterilerPage() {
 
               {(session?.user as any)?.role === 'ADMIN' && (
                 <div className="col-span-1 sm:col-span-2 space-y-2 pt-2 border-t">
-                  <Label className="text-xs text-gray-500 uppercase tracking-wider">Sorumlu Plasiyer Değiştir</Label>
+                  <Label className="text-xs text-gray-500 uppercase tracking-wider">Sorumlu Satıcı Değiştir</Label>
                   <select 
                     className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
                     value={editForm.salesRepId}
                     onChange={e => setEditForm({...editForm, salesRepId: e.target.value})}
                   >
-                    <option value="">Plasiyer seçin (Boş bırakılırsa yetkisiz kalır)</option>
+                    <option value="">Satıcı seçin (Boş bırakılırsa yetkisiz kalır)</option>
                     {staff.map((s: any) => (
                       <option key={s.id} value={s.id}>{s.name} ({s.role})</option>
                     ))}
