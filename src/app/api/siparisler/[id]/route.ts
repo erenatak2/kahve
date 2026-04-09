@@ -33,7 +33,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     return NextResponse.json({ error: 'Yetkisiz' }, { status: 401 })
   }
 
-  const { status, notes, cargoCompany, trackingNumber, orderDate } = await req.json()
+  const { status, notes, cargoCompany, trackingNumber, orderDate, reminderAt, reminderNote } = await req.json()
   const role = (session.user as any).role
   const customerId = (session.user as any).customerId
 
@@ -80,7 +80,15 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 
   const order = await prisma.order.update({
     where: { id: params.id },
-    data: { status, notes, orderDate, ...(cargoCompany !== undefined && { cargoCompany }), ...(trackingNumber !== undefined && { trackingNumber }) } as any,
+    data: { 
+      status, 
+      notes, 
+      orderDate, 
+      reminderAt,
+      reminderNote,
+      ...(cargoCompany !== undefined && { cargoCompany }), 
+      ...(trackingNumber !== undefined && { trackingNumber }) 
+    } as any,
     include: { orderItems: { include: { product: true } }, payments: true, customer: { include: { user: true } } },
   })
 

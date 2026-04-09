@@ -126,6 +126,10 @@ model Order {
   orderItems OrderItem[]
   payments   Payment[]
   paymentNotifications PaymentNotification[]
+
+  // Hatırlatıcılar
+  reminderAt   DateTime? // Hatırlatma tarihi
+  reminderNote String?   // Hatırlatma notu
 }
 
 model OrderItem {

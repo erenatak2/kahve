@@ -27,7 +27,7 @@ export default function SiparislerPage() {
   const [productSearch, setProductSearch] = useState('')
   const [editNotes, setEditNotes] = useState<{ id: string; value: string } | null>(null)
   const [editDate, setEditDate] = useState<{ id: string; value: string } | null>(null)
-  const [confirmDialog, setConfirmDialog] = useState<{ orderId: string; status: string; orderNumber?: string } | null>(null)
+  const [confirmDialog, setConfirmDialog] = useState<{ orderId: string; status: string; orderNumber?: string; reminderAt?: string; reminderNote?: string } | null>(null)
   const [kargoDialog, setKargoDialog] = useState<{ orderId: string; cargoCompany: string; trackingNumber: string } | null>(null)
   const { toast } = useToast()
 
@@ -90,7 +90,11 @@ export default function SiparislerPage() {
     const res = await fetch(`/api/siparisler/${confirmDialog.orderId}`, { 
       method: 'PUT', 
       headers: { 'Content-Type': 'application/json' }, 
-      body: JSON.stringify({ status: confirmDialog.status }) 
+      body: JSON.stringify({ 
+        status: confirmDialog.status,
+        reminderAt: confirmDialog.reminderAt ? new Date(confirmDialog.reminderAt).toISOString() : null,
+        reminderNote: confirmDialog.reminderNote || null
+      }) 
     })
     if (res.ok) {
       toast({ title: confirmDialog.status === 'TESLIM_EDILDI' ? 'Sipariş teslim edildi' : 'Sipariş iptal edildi' })
@@ -641,11 +645,36 @@ export default function SiparislerPage() {
 
                 {/* Warning/Info Box */}
                 {confirmDialog.status === 'TESLIM_EDILDI' ? (
-                  <div className="bg-green-50 border-l-4 border-green-500 rounded-r-lg p-4">
+                  <div className="bg-green-50 border-l-4 border-green-500 rounded-r-lg p-4 space-y-4">
                     <p className="text-sm text-green-800">
                       <span className="font-semibold">Onay:</span> Bu siparişi teslim edildi olarak işaretlemek üzeresiniz. 
                       Sipariş teslim edildiğinde stok otomatik olarak azaltılacaktır.
                     </p>
+                    
+                    <div className="pt-2 border-t border-green-100 space-y-3">
+                      <p className="text-xs font-bold text-green-700 uppercase">Gelecek Hatırlatıcı (Opsiyonel)</p>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <Label className="text-[10px] text-green-700">Hatırlatma Tarihi</Label>
+                          <Input 
+                            type="date" 
+                            className="h-8 text-xs border-green-200" 
+                            value={confirmDialog.reminderAt || ''} 
+                            onChange={e => setConfirmDialog({...confirmDialog, reminderAt: e.target.value})}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[10px] text-green-700">Hatırlatma Notu</Label>
+                          <Input 
+                            placeholder="Örn: Stok sor" 
+                            className="h-8 text-xs border-green-200"
+                            value={confirmDialog.reminderNote || ''}
+                            onChange={e => setConfirmDialog({...confirmDialog, reminderNote: e.target.value})}
+                          />
+                        </div>
+                      </div>
+                      <p className="text-[10px] text-green-600 italic">Müşteriyi tekrar ne zaman arayacağınızı veya ziyaret edeceğinizi belirleyebilirsiniz.</p>
+                    </div>
                   </div>
                 ) : (
                   <div className="bg-red-50 border-l-4 border-red-500 rounded-r-lg p-4">

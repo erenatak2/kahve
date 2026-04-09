@@ -63,7 +63,7 @@ export default function YeniSiparis() {
       let updatedCart
       if (existing) {
         // Mevcut miktara seçilen miktarı EKLE
-        const newQuantity = Math.min(existing.quantity + selectedQuantity, selectedProduct.stock)
+        const newQuantity = existing.quantity + selectedQuantity
         updatedCart = prev.map(i => i.productId === selectedProduct.id ? { ...i, quantity: newQuantity } : i)
         console.log(`➕ Ekleme: ${existing.quantity} + ${selectedQuantity} = ${newQuantity}`)
       } else {
@@ -90,7 +90,7 @@ export default function YeniSiparis() {
       } else {
         const product = products.find((p: any) => p.id === productId)
         const maxQty = product?.stock ?? qty
-        updatedCart = prev.map(i => i.productId === productId ? { ...i, quantity: Math.min(qty, maxQty) } : i)
+        updatedCart = prev.map(i => i.productId === productId ? { ...i, quantity: qty } : i)
       }
       localStorage.setItem('cart', JSON.stringify(updatedCart))
       window.dispatchEvent(new Event('storage'))
@@ -258,7 +258,6 @@ export default function YeniSiparis() {
                           size="sm"
                           variant="outline"
                           onClick={() => updateQty(item.productId, item.quantity + 1)}
-                          disabled={item.quantity >= (products.find((p: any) => p.id === item.productId)?.stock ?? Infinity)}
                           className="h-8 w-8 p-0"
                         >
                           <Plus className="h-4 w-4" />
@@ -338,24 +337,22 @@ export default function YeniSiparis() {
                   <Input
                     type="number"
                     min="1"
-                    max={selectedProduct.stock}
                     value={selectedQuantity}
-                    onChange={(e) => setSelectedQuantity(Math.min(selectedProduct.stock, Math.max(1, parseInt(e.target.value) || 1)))}
+                    onChange={(e) => setSelectedQuantity(Math.max(1, parseInt(e.target.value) || 1))}
                     className="w-20 text-center"
                   />
                   <Button
                     size="sm"
                     variant="outline"
                     onClick={() => {
-                      const newQty = Math.min(selectedProduct.stock, selectedQuantity + 1)
+                      const newQty = selectedQuantity + 1
                       console.log('➕ Plus tıklandı - Eski:', selectedQuantity, 'Yeni:', newQty)
                       setSelectedQuantity(newQty)
                     }}
-                    disabled={selectedQuantity >= selectedProduct.stock}
                   >
                     <Plus className="h-4 w-4" />
                   </Button>
-                  <span className="text-sm text-gray-500">/ {selectedProduct.stock} {selectedProduct.unit}</span>
+                  <span className="text-sm text-gray-500">{selectedProduct.unit ? `/ ${selectedProduct.unit}` : ''}</span>
                 </div>
               </div>
               <div className="bg-gray-50 p-3 rounded">

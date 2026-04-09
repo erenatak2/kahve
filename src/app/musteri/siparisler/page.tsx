@@ -9,6 +9,7 @@ import { formatCurrency, formatDate, ORDER_STATUS, ORDER_STATUS_COLOR, PAYMENT_S
 import { ShoppingCart, ChevronDown, ChevronUp, RefreshCw, X, AlertTriangle, Plus, CreditCard, Package, CheckCircle, Clock } from 'lucide-react'
 import { useToast } from '@/components/ui/use-toast'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 
 export default function MusteriSiparisler() {
   const [orders, setOrders] = useState<any[]>([])
@@ -157,6 +158,9 @@ export default function MusteriSiparisler() {
           <CardContent className="py-12 text-center">
             <ShoppingCart className="h-8 w-8 text-gray-300 mx-auto mb-2" />
             <p className="text-gray-500 text-sm">Henüz sipariş yok</p>
+            <Link href="/musteri/urunler">
+              <Button className="mt-4" size="sm">Ürünleri İncele</Button>
+            </Link>
           </CardContent>
         </Card>
       ) : (

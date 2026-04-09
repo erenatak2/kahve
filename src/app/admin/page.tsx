@@ -15,6 +15,7 @@ function AdminDashboard() {
   const { data: session } = useSession()
   const [data, setData] = useState<any>(null)
   const [pendingPayments, setPendingPayments] = useState<any[]>([])
+  const [reminders, setReminders] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
   const isSalesRep = (session?.user as any)?.role === 'SATICI'
@@ -24,9 +25,11 @@ function AdminDashboard() {
       fetch('/api/raporlar?type=genel').then(r => r.json()),
       fetch('/api/urunler').then(r => r.json()),
       fetch('/api/tahsilat?all=true').then(r => r.json()),
-    ]).then(([d, p, pay]) => {
+      fetch('/api/siparisler').then(r => r.json()),
+    ]).then(([d, p, pay, orders]) => {
       setData(d)
       setPendingPayments(pay.filter((p: any) => p.status === 'BEKLIYOR' || p.status === 'GECIKTI'))
+      setReminders(orders.filter((o: any) => o.reminderAt && new Date(o.reminderAt) >= new Date(new Date().setHours(0,0,0,0))))
       setLoading(false)
     })
   }, [])
@@ -112,6 +115,30 @@ function AdminDashboard() {
         </Card>
 
         <div className="space-y-4">
+          {reminders.length > 0 && (
+            <Card className="border-blue-200">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-base text-blue-700">
+                  <Clock className="h-4 w-4" />
+                  Müşteri Hatırlatıcıları ({reminders.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {reminders.slice(0, 5).sort((a,b) => new Date(a.reminderAt).getTime() - new Date(b.reminderAt).getTime()).map((o: any) => (
+                    <div key={o.id} className="flex flex-col gap-1 p-2 rounded-lg bg-blue-50/50 border border-blue-100/50">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-xs text-blue-900">{o.customer?.user?.name}</span>
+                        <span className="text-[10px] font-black bg-blue-100 text-blue-700 px-1.5 rounded">{formatDate(o.reminderAt)}</span>
+                      </div>
+                      {o.reminderNote && <p className="text-[11px] text-blue-600 italic">"{o.reminderNote}"</p>}
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {pendingPayments.length > 0 && (
             <Card className="border-red-200">
               <CardHeader className="pb-3">

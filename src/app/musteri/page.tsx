@@ -10,13 +10,20 @@ import Link from 'next/link'
 export default function MusteriDashboard() {
   const [orders, setOrders] = useState<any[]>([])
   const [payments, setPayments] = useState<any[]>([])
+  const [products, setProducts] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     Promise.all([
       fetch('/api/siparisler').then(r => r.json()),
       fetch('/api/tahsilat').then(r => r.json()),
-    ]).then(([o, p]) => { setOrders(o); setPayments(p); setLoading(false) })
+      fetch('/api/urunler').then(r => r.json()),
+    ]).then(([o, p, u]) => { 
+      setOrders(o)
+      setPayments(p)
+      setProducts(u) // Tüm ürünleri göster
+      setLoading(false) 
+    })
   }, [])
 
   // Sadece iptal olmayan siparişleri say
@@ -99,15 +106,50 @@ export default function MusteriDashboard() {
             </Link>
           </div>
           {sonSiparisler.length === 0 ? (
-            <Card>
-              <CardContent className="py-8 text-center">
-                <ShoppingCart className="h-8 w-8 text-gray-300 mx-auto mb-2" />
-                <p className="text-gray-500 text-sm">Henüz sipariş yok</p>
-                <Link href="/musteri/yeni-siparis">
-                  <Button className="mt-3" size="sm">İlk Siparişi Ver</Button>
-                </Link>
-              </CardContent>
-            </Card>
+            <div className="space-y-6">
+              <div className="bg-gray-50/80 border border-dashed border-gray-200 rounded-xl py-6 text-center">
+                <ShoppingCart className="h-8 w-8 text-gray-300 mx-auto mb-2 opacity-50" />
+                <p className="text-gray-500 text-sm font-medium">Henüz bir siparişiniz bulunmuyor</p>
+              </div>
+
+              <div className="space-y-4">
+                <div className="flex items-center justify-between px-1">
+                  <h3 className="text-sm font-bold text-gray-700">Sizin İçin Seçtiklerimiz</h3>
+                <Link href="/musteri/yeni-siparis" className="text-xs text-blue-600 hover:underline">Tümünü Gör</Link>
+              </div>
+              <div className="max-h-[500px] overflow-y-auto pr-2 space-y-3 custom-scrollbar">
+                {products.length > 0 ? products.map((p: any) => (
+                  <Link href="/musteri/yeni-siparis" key={p.id} className="block group">
+                    <Card className="border-gray-100 hover:border-blue-200 transition-all hover:shadow-sm">
+                      <CardContent className="p-3 flex items-center gap-4">
+                        <div className="h-16 w-16 flex-shrink-0 flex items-center justify-center bg-white rounded-md border border-gray-50">
+                          {p.imageUrl ? (
+                            <img src={p.imageUrl} alt={p.name} className="h-full w-full object-contain" />
+                          ) : (
+                            <ShoppingCart className="h-6 w-6 text-gray-200" />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-0.5">
+                            <span className="text-[10px] font-bold text-gray-400 uppercase">{p.code || 'KOD YOK'}</span>
+                          </div>
+                          <p className="text-sm font-semibold text-gray-700 truncate group-hover:text-blue-600 transition-colors uppercase">{p.name}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm font-bold text-blue-600">{formatCurrency(p.customerPrice ?? p.salePrice)}</p>
+                          <p className="text-[10px] text-gray-400">{p.unit || 'Adet'}</p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </Link>
+                )) : (
+                  <div className="py-8 text-center bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                    <p className="text-xs text-gray-400">Ürünler yükleniyor...</p>
+                  </div>
+                )}
+              </div>
+              </div>
+            </div>
           ) : (
             <div className="space-y-2">
               {sonSiparisler.map((o: any) => (

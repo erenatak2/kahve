@@ -182,24 +182,25 @@ export default function TahsilatPage() {
   const orderIdsUsed = new Set()
 
   filtered.forEach(p => {
-    if (!p.orderId) { // Siparişsiz ödeme (manüel girilmiş olabilir)
-      groupedByOrder.push(p)
+    if (!p.orderId) {
+      groupedByOrder.push({ ...p, totalPaid: p.status === 'ODENDI' ? p.amount : 0, remainingDebt: p.status !== 'ODENDI' ? p.amount : 0, totalDebt: p.amount })
       return
     }
 
     if (orderIdsUsed.has(p.orderId)) return
 
-    // Bu siparişe ait tüm ödemeleri bul (ODENDI, BEKLIYOR vb)
     const orderPayments = payments.filter(op => op.orderId === p.orderId)
     const paidTotal = orderPayments.filter(op => op.status === 'ODENDI').reduce((s, op) => s + op.amount, 0)
-    const pendingPayment = orderPayments.find(op => op.status === 'BEKLIYOR' || op.status === 'GECIKTI') || p
-    const totalDebt = p.order?.totalAmount || orderPayments.reduce((s, op) => s + op.amount, 0)
+    const totalAmount = p.order?.totalAmount || orderPayments.reduce((s, op) => s + op.amount, 0)
+    
+    // UI için en anlamlı ana kaydı seç (varsa bekleyen, yoksa en son ödenen)
+    const mainRecord = orderPayments.find(op => op.status === 'BEKLIYOR' || op.status === 'GECIKTI') || p
 
     groupedByOrder.push({
-      ...pendingPayment, // UI için temel veriler bekleyen ödemeden şablon alınsın
+      ...mainRecord,
       totalPaid: paidTotal,
-      remainingDebt: totalDebt - paidTotal,
-      totalDebt: totalDebt
+      remainingDebt: Math.max(0, totalAmount - paidTotal),
+      totalDebt: totalAmount
     })
     orderIdsUsed.add(p.orderId)
   })
@@ -235,7 +236,10 @@ export default function TahsilatPage() {
     <div className="p-4 md:p-6 space-y-4 md:space-y-6">
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-xl md:text-2xl font-bold text-gray-900">Tahsilat</h1>
+          <h1 className="text-xl md:text-2xl font-bold text-gray-900 flex items-center gap-2">
+            Tahsilat
+            <span className="text-[10px] bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full font-normal">GÜNCEL v4</span>
+          </h1>
           <p className="text-gray-500 text-sm">Ödeme takibi ve tahsilat yönetimi</p>
         </div>
         <div className="flex gap-2 flex-wrap">
@@ -296,8 +300,8 @@ export default function TahsilatPage() {
         <div className="space-y-3">
           {groupedByOrder.map((p: any) => {
             const isEditing = inlineEditingId === p.id
-            const totalPaid = p.totalPaid || 0
-            const remaining = p.remainingDebt || p.amount
+            const totalPaid = p.totalPaid ?? 0
+            const remaining = p.remainingDebt ?? 0
 
             return (
               <Card key={p.id} className={p.status === 'GECIKTI' ? 'border-red-200' : 'hover:shadow-md transition-all'}>
@@ -350,18 +354,24 @@ export default function TahsilatPage() {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-10 shrink-0">
-                      {/* Tahsil Edilen Kısmı */}
-                      <div className="text-right flex flex-col justify-end min-w-[140px] min-h-[64px]">
-                        <p className="text-[11px] font-extrabold text-blue-600 uppercase mb-1">Tahsil Edilen</p>
-                        <div className="flex items-center justify-end h-10">
-                          {isEditing ? (
-                            <div className="flex items-center justify-end animate-in fade-in duration-200 gap-2">
-                               <div className="flex items-center text-slate-900 border-b-2 border-blue-600 pb-0.5">
-                                  <span className="text-2xl font-black mr-0.5 tracking-tighter">₺</span>
+                    <div className="flex items-center gap-8 shrink-0">
+                      {/* Ödeme Özeti */}
+                      <div className="text-right flex flex-col justify-center min-w-[160px] gap-1">
+                        <div className="flex items-center justify-end gap-2 text-slate-500">
+                          <span className="text-[10px] font-bold uppercase">Toplam:</span>
+                          <span className="text-sm font-bold">{formatCurrency(p.totalDebt || p.amount)}</span>
+                        </div>
+                        
+                        <div className="flex flex-col items-end">
+                          <span className="text-[10px] font-extrabold text-blue-600 uppercase leading-none">Tahsil Edilen</span>
+                          <div className="flex items-center justify-end h-9">
+                            {isEditing ? (
+                              <div className="flex items-center justify-end animate-in fade-in duration-200 gap-2">
+                                <div className="flex items-center text-slate-900 border-b-2 border-blue-600 pb-0.5">
+                                  <span className="text-xl font-black mr-0.5 tracking-tighter">₺</span>
                                   <input
                                     type="text"
-                                    className="w-24 bg-transparent border-none outline-none font-black text-2xl text-slate-900 tracking-tighter p-0 text-right focus:ring-0 focus:outline-none"
+                                    className="w-24 bg-transparent border-none outline-none font-black text-xl text-slate-900 tracking-tighter p-0 text-right focus:ring-0 focus:outline-none"
                                     value={editForm.amount}
                                     onChange={(e) => setEditForm({ ...editForm, amount: e.target.value })}
                                     onBlur={() => handleUpdateTotalCollected(p)}
@@ -371,34 +381,45 @@ export default function TahsilatPage() {
                                     }}
                                     autoFocus
                                   />
-                               </div>
-                               <button 
-                                 onClick={() => handleUpdateTotalCollected(p)}
-                                 className="bg-green-500 hover:bg-green-600 text-white p-1 rounded-full shadow-sm transition-all"
-                               >
-                                 <Check className="h-4 w-4 stroke-[3px]" />
-                               </button>
-                            </div>
-                          ) : (
-                            <div 
-                              className="cursor-pointer hover:bg-slate-50 px-2 py-1 rounded-xl transition-all group flex flex-col items-end justify-center h-full"
-                              onClick={() => {
-                                setInlineEditingId(p.id)
-                                setEditForm({
-                                  amount: Number(totalPaid.toFixed(2)).toString(), 
-                                  method: p.method || 'NAKIT',
-                                  notes: p.notes || '',
-                                  dueDate: p.dueDate ? new Date(p.dueDate).toISOString().split('T')[0] : ''
-                                })
-                              }}
-                              title="Düzenlemek için tıkla"
-                            >
-                              <p className="font-black text-2xl leading-none text-slate-900 tracking-tighter flex items-center">
-                                <Edit3 className="h-4 w-4 mr-1.5 text-blue-500 opacity-0 group-hover:opacity-100 transition-all duration-200" />
-                                <span className="text-2xl mr-0.5">₺</span>
-                                {totalPaid.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                              </p>
-                            </div>
+                                </div>
+                                <button 
+                                  onClick={() => handleUpdateTotalCollected(p)}
+                                  className="bg-green-500 hover:bg-green-600 text-white p-1 rounded-full shadow-sm transition-all"
+                                >
+                                  <Check className="h-4 w-4 stroke-[3px]" />
+                                </button>
+                              </div>
+                            ) : (
+                              <div 
+                                className="cursor-pointer hover:bg-slate-50 px-2 py-1 rounded-lg transition-all group flex items-center h-full"
+                                onClick={() => {
+                                  setInlineEditingId(p.id)
+                                  setEditForm({
+                                    amount: Number(totalPaid.toFixed(2)).toString(), 
+                                    method: p.method || 'NAKIT',
+                                    notes: p.notes || '',
+                                    dueDate: p.dueDate ? new Date(p.dueDate).toISOString().split('T')[0] : ''
+                                  })
+                                }}
+                              >
+                                <Edit3 className="h-3 w-3 mr-2 text-blue-500 opacity-0 group-hover:opacity-100 transition-all font-bold" />
+                                <span className="text-xl font-black text-slate-900 tracking-tighter">
+                                  {totalPaid.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                  <span className="text-sm ml-0.5 font-bold">₺</span>
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="pt-1 mt-1 border-t border-slate-100 flex items-center justify-end gap-2">
+                          <span className={`text-[10px] font-black uppercase ${remaining > 0.01 ? 'text-red-500' : 'text-green-600'}`}>
+                            {remaining > 0.01 ? 'Kalan Borç:' : 'Bakiye Kapandı'}
+                          </span>
+                          {remaining > 0.01 && (
+                            <span className="text-sm font-black text-red-600 tracking-tight">
+                              {formatCurrency(remaining)}
+                            </span>
                           )}
                         </div>
                       </div>
@@ -418,14 +439,14 @@ export default function TahsilatPage() {
                                  isPaid ? 'bg-green-50 border-green-200 text-green-700' : 
                                  isGecikti ? 'bg-red-50 border-red-200 text-red-700' : 
                                  'bg-amber-50 border-amber-200 text-amber-700'
-                               }`}>
+                               }`} title={isPaid ? 'Ödeme Tamamlandı' : isGecikti ? 'Vade Geçti' : 'Ödeme Bekleniyor'}>
                                  {isPaid ? 'Ödendi' : isGecikti ? 'Gecikti' : 'Bekliyor'}
                                </span>
                                <div className="flex gap-1.5 mt-2">
                                  {!isPaid && !isEditing ? (
-                                   <Button size="sm" className="bg-green-600 hover:bg-green-700 h-7 text-[10px] font-extrabold px-3" onClick={() => markPaid(p.id)}>ÖDENDİ</Button>
+                                   <Button size="sm" className="bg-green-600 hover:bg-green-700 h-7 text-[10px] font-extrabold px-3 shadow-sm" onClick={() => markPaid(p.id)}>ÖDENDİ</Button>
                                  ) : isPaid && !isEditing && (
-                                   <Button size="sm" variant="outline" className="h-7 text-[9px] font-black border-slate-200 text-slate-500 hover:text-blue-600 hover:border-blue-200 transition-all" 
+                                   <Button size="sm" variant="outline" className="h-7 text-[9px] font-black border-slate-200 text-slate-500 hover:text-blue-600 hover:border-blue-200 transition-all bg-white" 
                                      onClick={() => {
                                        setConfirmAction({
                                          message: 'Tahsilatı iptal edip borcu tekrar beklemeye almak istediğinize emin misiniz?',
@@ -433,7 +454,7 @@ export default function TahsilatPage() {
                                        })
                                      }}>
                                      GERİ AL
-                                   </Button>
+                                     </Button>
                                  )}
                                </div>
                              </>
