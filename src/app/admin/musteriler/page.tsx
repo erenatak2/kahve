@@ -345,7 +345,7 @@ export default function MusterilerPage() {
                                 onChange={(e) => handleQuickAssign(c.id, e.target.value)}
                                 value=""
                               >
-                                <option value="" disabled>Satıcı Ata...</option>
+                                <option value="" disabled>Satıcı Ata</option>
                                 {staff.map((s: any) => (
                                   <option key={s.id} value={s.id}>{s.name}</option>
                                 ))}
