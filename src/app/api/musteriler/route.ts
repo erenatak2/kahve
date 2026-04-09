@@ -13,10 +13,8 @@ export async function GET() {
   }
 
   const whereClause: any = { isActive: true }
-  
   if (role === 'SATICI') {
     whereClause.salesRepId = (session.user as any).id
-    whereClause.isApproved = true // Sadece onaylanmış müşteriler satıcı panelinde gözükür
   }
 
   const customers = await prisma.customer.findMany({

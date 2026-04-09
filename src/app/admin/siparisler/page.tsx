@@ -9,13 +9,12 @@ import { useToast } from '@/components/ui/use-toast'
 import { useSession } from 'next-auth/react'
 import { Plus, ShoppingCart, Search, ChevronDown, ChevronUp, RefreshCw, CreditCard, Printer, Package, FileSpreadsheet, UserCheck, Users2 } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
-import { Switch } from '@/components/ui/switch'
 import { formatCurrency, formatDate, ORDER_STATUS, ORDER_STATUS_COLOR, PAYMENT_METHOD, PAYMENT_STATUS_COLOR } from '@/lib/utils'
+import { Switch } from '@/components/ui/switch'
 
 export default function SiparislerPage() {
   const { data: session } = useSession()
   const [orders, setOrders] = useState<any[]>([])
-  const [onlyMyCustomers, setOnlyMyCustomers] = useState(false)
   const [customers, setCustomers] = useState<any[]>([])
   const [products, setProducts] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -186,8 +185,7 @@ export default function SiparislerPage() {
     const nameMatch = o.customer?.user?.name?.toLowerCase().includes(search.toLowerCase())
     const statusMatch = statusFilter === 'TUMU' || o.status === statusFilter
     
-    // Sadece benim müşterilerim filtresi (Adminler için)
-    const isMyCustomer = !onlyMyCustomers || o.customer?.salesRepId === (session?.user as any)?.id
+    const isMyCustomer = o.customer?.salesRepId === (session?.user as any)?.id
 
     return nameMatch && statusMatch && isMyCustomer
   })
@@ -203,19 +201,6 @@ export default function SiparislerPage() {
               {filtered.length > 0 && ` • ${formatCurrency(filtered.reduce((s: number, o: any) => s + o.totalAmount, 0))}`}
             </p>
           </div>
-          {session?.user?.role === 'ADMIN' && (
-            <div className="flex items-center gap-2 bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100 shadow-sm transition-all hover:bg-blue-100">
-              <Switch 
-                id="my-customers" 
-                checked={onlyMyCustomers} 
-                onCheckedChange={setOnlyMyCustomers}
-              />
-              <Label htmlFor="my-customers" className="text-[11px] font-semibold text-blue-800 cursor-pointer flex items-center gap-1.5 whitespace-nowrap">
-                {onlyMyCustomers ? <UserCheck className="h-3 w-3" /> : <Users2 className="h-3 w-3" />}
-                Sadece Benim Müşterilerim
-              </Label>
-            </div>
-          )}
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={() => { 

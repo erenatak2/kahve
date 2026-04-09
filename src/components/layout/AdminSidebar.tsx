@@ -30,7 +30,7 @@ interface NavItem {
   href: string
   label: string
   icon: React.ComponentType<{ className?: string }>
-  badgeKey?: 'orders' | 'notifications' | 'customers'
+  badgeKey?: 'orders' | 'notifications' | 'customers' | 'reminders'
 }
 
 const navItems: NavItem[] = [
