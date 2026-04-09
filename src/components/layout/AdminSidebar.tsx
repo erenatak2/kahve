@@ -28,13 +28,13 @@ interface NavItem {
   href: string
   label: string
   icon: React.ComponentType<{ className?: string }>
-  badgeKey?: 'orders' | 'notifications'
+  badgeKey?: 'orders' | 'notifications' | 'customers'
 }
 
 const navItems: NavItem[] = [
   { href: '/admin', label: 'Gösterge Paneli', icon: LayoutDashboard },
   { href: '/admin/urunler', label: 'Ürünler', icon: Package },
-  { href: '/admin/musteriler', label: 'Müşteriler', icon: Users },
+  { href: '/admin/musteriler', label: 'Müşteriler', icon: Users, badgeKey: 'customers' },
   { href: '/admin/siparisler', label: 'Siparişler', icon: ShoppingCart, badgeKey: 'orders' },
   { href: '/admin/tahsilat', label: 'Tahsilat', icon: CreditCard },
   { href: '/admin/odeme-bildirimler', label: 'Ödeme Bildirimleri', icon: Bell, badgeKey: 'notifications' },
@@ -48,6 +48,7 @@ const navItems: NavItem[] = [
 interface BadgeCounts {
   orders: number
   notifications: number
+  customers: number
 }
 
 // Ses çalma fonksiyonu - Web Audio API
@@ -94,10 +95,10 @@ const playNotificationSound = () => {
 
 export function AdminSidebar({ user, onClose }: { user: { name?: string; email?: string; role?: string }; onClose?: () => void }) {
   const pathname = usePathname()
-  const [counts, setCounts] = useState<BadgeCounts>({ orders: 0, notifications: 0 })
-  const [seenCounts, setSeenCounts] = useState<BadgeCounts>({ orders: 0, notifications: 0 })
+  const [counts, setCounts] = useState<BadgeCounts>({ orders: 0, notifications: 0, customers: 0 })
+  const [seenCounts, setSeenCounts] = useState<BadgeCounts>({ orders: 0, notifications: 0, customers: 0 })
   const [soundEnabled, setSoundEnabled] = useState(true)
-  const prevCounts = useRef<BadgeCounts>({ orders: 0, notifications: 0 })
+  const prevCounts = useRef<BadgeCounts>({ orders: 0, notifications: 0, customers: 0 })
   const soundEnabledRef = useRef(true)
   
   // LocalStorage'dan görülen sayıları yükle
@@ -119,6 +120,10 @@ export function AdminSidebar({ user, onClose }: { user: { name?: string; email?:
     }
     if (pathname === '/admin/odeme-bildirimler' && counts.notifications > seenCounts.notifications) {
       currentSeen.notifications = counts.notifications
+      updated = true
+    }
+    if (pathname === '/admin/musteriler' && counts.customers > seenCounts.customers) {
+      currentSeen.customers = counts.customers
       updated = true
     }
     
@@ -173,8 +178,9 @@ export function AdminSidebar({ user, onClose }: { user: { name?: string; email?:
                 // Ses kontrolü - sayı artışı varsa ve ses açıksa
                 const ordersIncreased = data.orders > prevCounts.current.orders
                 const notificationsIncreased = data.notifications > prevCounts.current.notifications
+                const customersIncreased = data.customers > prevCounts.current.customers
                 
-                if ((ordersIncreased || notificationsIncreased) && soundEnabledRef.current) {
+                if ((ordersIncreased || notificationsIncreased || customersIncreased) && soundEnabledRef.current) {
                   playNotificationSound()
                 }
                 
