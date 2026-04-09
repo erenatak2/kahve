@@ -23,6 +23,7 @@ import {
   ShieldAlert,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import ReminderList from './ReminderList'
 
 interface NavItem {
   href: string
@@ -267,6 +268,10 @@ export function AdminSidebar({ user, onClose }: { user: { name?: string; email?:
           )
         })}
       </nav>
+
+      <div className="mt-auto">
+        <ReminderList />
+      </div>
 
       <div className="p-4 border-t">
         <div className="mb-3 px-3">

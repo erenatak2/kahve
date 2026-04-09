@@ -33,7 +33,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     return NextResponse.json({ error: 'Yetkisiz' }, { status: 401 })
   }
 
-  const { status, notes, cargoCompany, trackingNumber, orderDate, reminderAt, reminderNote } = await req.json()
+  const { status, notes, cargoCompany, trackingNumber, orderDate, reminderAt, reminderNote, followupStatus } = await req.json()
   const role = (session.user as any).role
   const customerId = (session.user as any).customerId
 
@@ -86,6 +86,8 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
       orderDate, 
       reminderAt,
       reminderNote,
+      followupStatus,
+      ...(status === 'TESLIM_EDILDI' && existing.status !== 'TESLIM_EDILDI' && { deliveredAt: new Date() }),
       ...(cargoCompany !== undefined && { cargoCompany }), 
       ...(trackingNumber !== undefined && { trackingNumber }) 
     } as any,

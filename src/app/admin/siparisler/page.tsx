@@ -652,7 +652,47 @@ export default function SiparislerPage() {
                     </p>
                     
                     <div className="pt-2 border-t border-green-100 space-y-3">
-                      <p className="text-xs font-bold text-green-700 uppercase">Gelecek Hatırlatıcı (Opsiyonel)</p>
+                      <p className="text-xs font-bold text-green-700 uppercase">Gelecek Hatırlatıcı (Arama Takibi)</p>
+                      
+                      <div className="flex flex-wrap gap-2">
+                        {[
+                          { label: 'Yarın', days: 1 },
+                          { label: '2 Gün', days: 2 },
+                          { label: '3 Gün', days: 3 },
+                          { label: '1 Hafta', days: 7 },
+                          { label: '2 Hafta', days: 14 },
+                          { label: '1 Ay', days: 30 },
+                        ].map((opt) => (
+                          <Button
+                            key={opt.days}
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-7 text-[10px] px-2 border-green-200 text-green-700 hover:bg-green-100"
+                            onClick={() => {
+                              const d = new Date()
+                              d.setDate(d.getDate() + opt.days)
+                              setConfirmDialog({
+                                ...confirmDialog,
+                                reminderAt: d.toISOString().split('T')[0],
+                                reminderNote: `${opt.label} sonra aranacak`
+                              })
+                            }}
+                          >
+                            +{opt.label}
+                          </Button>
+                        ))}
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 text-[10px] px-2 text-red-600"
+                          onClick={() => setConfirmDialog({ ...confirmDialog, reminderAt: undefined, reminderNote: undefined })}
+                        >
+                          Temizle
+                        </Button>
+                      </div>
+
                       <div className="grid grid-cols-2 gap-3">
                         <div className="space-y-1">
                           <Label className="text-[10px] text-green-700">Hatırlatma Tarihi</Label>
@@ -666,14 +706,14 @@ export default function SiparislerPage() {
                         <div className="space-y-1">
                           <Label className="text-[10px] text-green-700">Hatırlatma Notu</Label>
                           <Input 
-                            placeholder="Örn: Stok sor" 
+                            placeholder="Örn: Memnuniyet sor" 
                             className="h-8 text-xs border-green-200"
                             value={confirmDialog.reminderNote || ''}
                             onChange={e => setConfirmDialog({...confirmDialog, reminderNote: e.target.value})}
                           />
                         </div>
                       </div>
-                      <p className="text-[10px] text-green-600 italic">Müşteriyi tekrar ne zaman arayacağınızı veya ziyaret edeceğinizi belirleyebilirsiniz.</p>
+                      <p className="text-[10px] text-green-600 italic">Müşteriyi tekrar ne zaman arayacağınızı belirleyebilirsiniz. Belirlenen tarihte "Aranacaklar" listesine düşecektir.</p>
                     </div>
                   </div>
                 ) : (

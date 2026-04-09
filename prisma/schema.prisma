@@ -127,9 +127,11 @@ model Order {
   payments   Payment[]
   paymentNotifications PaymentNotification[]
 
-  // Hatırlatıcılar
-  reminderAt   DateTime? // Hatırlatma tarihi
-  reminderNote String?   // Hatırlatma notu
+  // Hatırlatıcılar ve Takip
+  deliveredAt    DateTime? // Teslimat tarihi
+  followupStatus String    @default("BEKLIYOR") // BEKLIYOR, ARANDI
+  reminderAt     DateTime? // Hatırlatma (Arama) tarihi
+  reminderNote   String?   // Hatırlatma notu
 }
 
 model OrderItem {
