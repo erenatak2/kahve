@@ -21,6 +21,7 @@ import {
   Bell,
   Volume2,
   ShieldAlert,
+  Phone,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import ReminderList from './ReminderList'
