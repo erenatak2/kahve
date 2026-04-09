@@ -43,7 +43,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
       discountRate, 
       notes, 
       isActive,
-      salesRepId: salesRepId || undefined
+      salesRepId: salesRepId === "" ? null : (salesRepId || undefined)
     },
     include: { user: true },
   })

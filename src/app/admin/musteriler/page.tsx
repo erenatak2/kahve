@@ -141,6 +141,21 @@ export default function MusterilerPage() {
     else toast({ title: 'Hata', variant: 'destructive' })
   }
 
+  const handleQuickAssign = async (customerId: string, salesRepId: string) => {
+    if (!salesRepId) return
+    const res = await fetch(`/api/musteriler/${customerId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ salesRepId }),
+    })
+    if (res.ok) {
+      toast({ title: 'Müşteri atandı' })
+      fetchAll()
+    } else {
+      toast({ title: 'Hata', variant: 'destructive' })
+    }
+  }
+
   const handleDeleteCustomer = (customerId: string, name: string) => {
     setDeleteConfirm({ customerId, name })
   }
@@ -259,9 +274,18 @@ export default function MusterilerPage() {
       c.user?.name?.toLowerCase().includes(search.toLowerCase()) ||
       c.user?.email?.toLowerCase().includes(search.toLowerCase())
     
-    const isMyCustomer = c.salesRepId === (session?.user as any)?.id
+    const userRole = (session?.user as any)?.role
+    const userId = (session?.user as any)?.id
+    const isMyCustomer = c.salesRepId === userId
+    const isUnassigned = !c.salesRepId
+    const isAdmin = userRole === 'ADMIN'
 
-    return searchMatch && isMyCustomer
+    // Admin: Kendi müşterilerini + Atanmamış (yeni kayıt olan) müşterileri görür
+    // Birine atandıktan sonra listesi temizlenmiş olur (Ekip Yönetimi'nden takibe devam edebilir)
+    // Satıcı: Sadece kendine atananları görür
+    const showCustomer = isAdmin ? (isMyCustomer || isUnassigned) : isMyCustomer
+
+    return searchMatch && showCustomer
   })
 
   return (
@@ -310,9 +334,27 @@ export default function MusterilerPage() {
                       <div>
                         <p className="font-medium flex items-center gap-1.5">
                           {c.user?.name}
-                          {c.salesRep && (
-                            <span className="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded-full border border-gray-200" title={`Sorumlu: ${c.salesRep.name}`}>
+                          {c.salesRep ? (
+                            <span className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded-full border border-slate-200" title={`Sorumlu: ${c.salesRep.name}`}>
                               {c.salesRep.name}
+                            </span>
+                          ) : (session?.user as any)?.role === 'ADMIN' ? (
+                            <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                              <select 
+                                className="text-[10px] h-6 rounded border border-orange-300 bg-orange-50 px-1 focus:ring-1 focus:ring-orange-500 font-semibold text-orange-700"
+                                onChange={(e) => handleQuickAssign(c.id, e.target.value)}
+                                value=""
+                              >
+                                <option value="" disabled>Plasiyer Ata...</option>
+                                {staff.map((s: any) => (
+                                  <option key={s.id} value={s.id}>{s.name}</option>
+                                ))}
+                              </select>
+                              <span className="animate-pulse flex h-1.5 w-1.5 rounded-full bg-orange-500"></span>
+                            </div>
+                          ) : (
+                            <span className="text-[10px] bg-red-50 text-red-600 px-1.5 py-0.5 rounded-full border border-red-100">
+                              Atama Bekliyor
                             </span>
                           )}
                         </p>
