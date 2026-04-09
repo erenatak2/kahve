@@ -5,14 +5,18 @@ import { useRouter, useParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { formatCurrency, formatDate, ORDER_STATUS_COLOR, ORDER_STATUS } from '@/lib/utils'
-import { ArrowLeft, FileText, Printer, Download, Target, Package, Clock, ShieldCheck, User as UserIcon } from 'lucide-react'
+import { ArrowLeft, FileText, Printer, Download, Target, Package, Clock, ShieldCheck, User as UserIcon, Check, X } from 'lucide-react'
+import { useToast } from '@/components/ui/use-toast'
 import * as XLSX from 'xlsx'
 
 export default function PersonelPerformansPage() {
   const params = useParams()
   const router = useRouter()
   const [member, setMember] = useState<any>(null)
+  const [team, setTeam] = useState<any[]>([])
+  const [pendingAssignments, setPendingAssignments] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
+  const { toast } = useToast()
 
   useEffect(() => {
     fetchPerformans()
@@ -20,12 +24,42 @@ export default function PersonelPerformansPage() {
 
   const fetchPerformans = async () => {
     setLoading(true)
-    // Ekip API'sini kullanarak bu personelin verilerini bul
-    const res = await fetch('/api/admin/ekip')
-    const team = await res.json()
-    const found = team.find((m: any) => m.id === params.id)
-    setMember(found)
+    try {
+      const res = await fetch('/api/admin/ekip')
+      const data = await res.json()
+      if (res.ok) {
+        setTeam(data)
+        const found = data.find((m: any) => m.id === params.id)
+        setMember(found)
+      }
+    } catch (err) {
+      console.error(err)
+    }
     setLoading(false)
+  }
+
+  const handleQuickAssign = async (customerId: string, salesRepId: string) => {
+    if (!salesRepId) return
+    try {
+      const res = await fetch(`/api/musteriler/${customerId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ salesRepId }),
+      })
+      if (res.ok) {
+        toast({ title: 'Başarılı', description: 'Müşteri yeni satıcıya aktarıldı.' })
+        fetchPerformans() // Refresh data
+        setPendingAssignments(prev => {
+          const next = { ...prev }
+          delete next[customerId]
+          return next
+        })
+      } else {
+        toast({ title: 'Hata', variant: 'destructive' })
+      }
+    } catch (err) {
+      toast({ title: 'Hata', variant: 'destructive' })
+    }
   }
 
   const handlePrint = () => {
@@ -138,6 +172,7 @@ export default function PersonelPerformansPage() {
                   <th className="px-4 py-3 text-left font-semibold text-gray-600">Müşteri</th>
                   <th className="px-4 py-3 text-center font-semibold text-gray-600">Sipariş</th>
                   <th className="px-4 py-3 text-right font-semibold text-gray-600">Toplam Satış</th>
+                  <th className="px-4 py-3 text-right font-semibold text-gray-600">Satıcı Değiştir</th>
                 </tr>
               </thead>
               <tbody className="divide-y">
@@ -146,6 +181,43 @@ export default function PersonelPerformansPage() {
                     <td className="px-4 py-3 font-medium text-gray-700">{cust.name}</td>
                     <td className="px-4 py-3 text-center text-gray-500">{cust.orderCount}</td>
                     <td className="px-4 py-3 text-right font-bold text-green-600">{formatCurrency(cust.totalSales)}</td>
+                    <td className="px-4 py-3 text-right">
+                      <div className="flex items-center justify-end gap-1.5">
+                        <select 
+                          className="text-[11px] h-7 rounded-lg border-gray-300 bg-white px-2 focus:ring-2 focus:ring-blue-500 shadow-sm transition-all outline-none"
+                          onChange={(e) => setPendingAssignments(prev => ({ ...prev, [cust.id]: e.target.value }))}
+                          value={pendingAssignments[cust.id] || ""}
+                        >
+                          <option value="" disabled>Seçiniz...</option>
+                          {team.map((s: any) => (
+                            <option key={s.id} value={s.id}>{s.name} {s.id === member.id ? '(Aktif)' : ''}</option>
+                          ))}
+                        </select>
+                        {pendingAssignments[cust.id] && pendingAssignments[cust.id] !== member.id && (
+                          <div className="flex items-center gap-1.5 animate-in fade-in zoom-in duration-200">
+                            <Button 
+                              size="sm" 
+                              className="h-7 w-7 p-0 bg-green-500 hover:bg-green-600 text-white shadow-sm" 
+                              onClick={() => handleQuickAssign(cust.id, pendingAssignments[cust.id])}
+                            >
+                              <Check className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant="ghost" 
+                              className="h-7 w-7 p-0 text-gray-400 hover:text-red-500 hover:bg-red-50" 
+                              onClick={() => setPendingAssignments(prev => {
+                                const next = { ...prev }
+                                delete next[cust.id]
+                                return next
+                              })}
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
