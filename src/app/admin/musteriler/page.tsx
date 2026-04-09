@@ -52,10 +52,12 @@ export default function MusterilerPage() {
       setProducts(Array.isArray(p) ? p : []) 
       setStaff(Array.isArray(s) ? s : [])
       setLoading(false) 
-    })
+    }).catch(() => setLoading(false))
   }
 
-  useEffect(() => { fetchAll() }, [])
+  useEffect(() => {
+    if (session) fetchAll()
+  }, [session])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
