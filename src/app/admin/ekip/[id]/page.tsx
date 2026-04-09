@@ -172,7 +172,7 @@ export default function PersonelPerformansPage() {
                   <th className="px-4 py-3 text-left font-semibold text-gray-600">Müşteri</th>
                   <th className="px-4 py-3 text-center font-semibold text-gray-600">Sipariş</th>
                   <th className="px-4 py-3 text-right font-semibold text-gray-600">Toplam Satış</th>
-                  <th className="px-4 py-3 text-right font-semibold text-gray-600">Satıcı Değiştir</th>
+                  <th className="px-4 py-3 text-right font-semibold text-gray-600">Sorumlu Satıcı</th>
                 </tr>
               </thead>
               <tbody className="divide-y">
@@ -184,35 +184,34 @@ export default function PersonelPerformansPage() {
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-1.5">
                         <select 
-                          className="text-[11px] h-7 rounded-lg border-gray-300 bg-white px-2 focus:ring-2 focus:ring-blue-500 shadow-sm transition-all outline-none"
+                          className="text-sm h-9 rounded-lg border-gray-300 bg-white px-3 focus:ring-2 focus:ring-blue-500 shadow-sm transition-all outline-none font-medium text-gray-900 hover:border-blue-400 cursor-pointer"
                           onChange={(e) => setPendingAssignments(prev => ({ ...prev, [cust.id]: e.target.value }))}
-                          value={pendingAssignments[cust.id] || ""}
+                          value={pendingAssignments[cust.id] || member.id}
                         >
-                          <option value="" disabled>Seçiniz...</option>
                           {team.map((s: any) => (
-                            <option key={s.id} value={s.id}>{s.name} {s.id === member.id ? '(Aktif)' : ''}</option>
+                            <option key={s.id} value={s.id}>{s.name}</option>
                           ))}
                         </select>
                         {pendingAssignments[cust.id] && pendingAssignments[cust.id] !== member.id && (
                           <div className="flex items-center gap-1.5 animate-in fade-in zoom-in duration-200">
                             <Button 
                               size="sm" 
-                              className="h-7 w-7 p-0 bg-green-500 hover:bg-green-600 text-white shadow-sm" 
+                              className="h-9 w-9 p-0 bg-green-500 hover:bg-green-600 text-white shadow-lg active:scale-95 transition-transform" 
                               onClick={() => handleQuickAssign(cust.id, pendingAssignments[cust.id])}
                             >
-                              <Check className="h-3.5 w-3.5" />
+                              <Check className="h-4 w-4" />
                             </Button>
                             <Button 
                               size="sm" 
                               variant="ghost" 
-                              className="h-7 w-7 p-0 text-gray-400 hover:text-red-500 hover:bg-red-50" 
+                              className="h-8 w-8 p-0 text-gray-400 hover:text-red-500 hover:bg-red-50" 
                               onClick={() => setPendingAssignments(prev => {
                                 const next = { ...prev }
                                 delete next[cust.id]
                                 return next
                               })}
                             >
-                              <X className="h-3.5 w-3.5" />
+                              <X className="h-4 w-4" />
                             </Button>
                           </div>
                         )}

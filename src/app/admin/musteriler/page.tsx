@@ -340,11 +340,11 @@ export default function MusterilerPage() {
                           {!c.salesRep && (session?.user as any)?.role === 'ADMIN' ? (
                             <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
                               <select 
-                                className="text-[10px] h-6 rounded border border-orange-300 bg-orange-50 px-1 focus:ring-1 focus:ring-orange-500 font-semibold text-orange-700"
+                                className="text-xs h-7 rounded-lg border-gray-200 bg-white px-2 focus:ring-2 focus:ring-blue-500 shadow-sm transition-all outline-none font-medium text-gray-700 hover:border-blue-400 cursor-pointer w-32"
                                 onChange={(e) => setPendingAssignments(prev => ({ ...prev, [c.id]: e.target.value }))}
                                 value={pendingAssignments[c.id] || ""}
                               >
-                                <option value="" disabled>Satıcı Ata</option>
+                                <option value="" disabled></option>
                                 {staff.map((s: any) => (
                                   <option key={s.id} value={s.id}>{s.name}</option>
                                 ))}
