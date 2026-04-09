@@ -9,7 +9,7 @@ import { useToast } from '@/components/ui/use-toast'
 import { useSession } from 'next-auth/react'
 import { Plus, ShoppingCart, Search, ChevronDown, ChevronUp, RefreshCw, CreditCard, Printer, Package, FileSpreadsheet, UserCheck, Users2, CalendarClock } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
-import { formatCurrency, formatDate, ORDER_STATUS, ORDER_STATUS_COLOR, PAYMENT_METHOD, PAYMENT_STATUS_COLOR } from '@/lib/utils'
+import { cn, formatCurrency, formatDate, ORDER_STATUS, ORDER_STATUS_COLOR, PAYMENT_METHOD, PAYMENT_STATUS_COLOR } from '@/lib/utils'
 import { Switch } from '@/components/ui/switch'
 
 export default function SiparislerPage() {
