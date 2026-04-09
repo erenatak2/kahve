@@ -17,6 +17,7 @@ export async function GET(request: NextRequest) {
   const stream = new ReadableStream({
     async start(controller) {
       let isActive = true
+      let interval: NodeJS.Timeout | null = null
       
       const sendCounts = async () => {
         if (!isActive) return
@@ -28,6 +29,8 @@ export async function GET(request: NextRequest) {
             prisma.order.count({ where: { followupStatus: 'BEKLIYOR', reminderAt: { not: null } } })
           ])
           
+          if (!isActive) return
+
           const data = JSON.stringify({ 
             orders: orderCount, 
             notifications: notificationCount, 
@@ -35,34 +38,25 @@ export async function GET(request: NextRequest) {
             reminders: reminderCount,
             timestamp: Date.now() 
           })
-          if (!isActive) return
           
           try {
             controller.enqueue(encoder.encode(`data: ${data}\n\n`))
           } catch (e) {
-            // Eğer controller kapanmışsa (client gitmişse) sessizce durdur
             isActive = false
-            clearInterval(interval)
+            if (interval) clearInterval(interval)
           }
         } catch (error) {
-          // Prisma hataları gibi diğer hataları logla
           console.error('SSE data fetch error:', error)
         }
       }
 
-      // İlk veriyi gönder
       await sendCounts()
-      
-      const interval = setInterval(sendCounts, 3000)
+      interval = setInterval(sendCounts, 3000)
       
       request.signal.addEventListener('abort', () => {
         isActive = false
-        clearInterval(interval)
-        try {
-          controller.close()
-        } catch (e) {
-          // Zaten kapalıysa hata vermesin
-        }
+        if (interval) clearInterval(interval)
+        try { controller.close() } catch (e) {}
       })
     }
   })

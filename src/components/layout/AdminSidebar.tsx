@@ -36,7 +36,7 @@ interface NavItem {
 const navItems: NavItem[] = [
   { href: '/admin', label: 'Gösterge Paneli', icon: LayoutDashboard },
   { href: '/admin/urunler', label: 'Ürünler', icon: Package },
-  { href: '/admin/musteriler', label: 'Müşteriler', icon: Users, badgeKey: 'customers' },
+  { href: '/admin/musteriler', label: 'Müşteriler', icon: Users },
   { href: '/admin/siparisler', label: 'Siparişler', icon: ShoppingCart, badgeKey: 'orders' },
   { href: '/admin/tahsilat', label: 'Tahsilat', icon: CreditCard },
   { href: '/admin/takip', label: 'Aranacaklar', icon: Phone, badgeKey: 'reminders' },

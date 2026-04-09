@@ -16,16 +16,13 @@ export async function GET() {
   
   if (role === 'SATICI') {
     whereClause.salesRepId = (session.user as any).id
-    whereClause.isApproved = true 
   } else if (role === 'ADMIN') {
     // Adminler:
-    // 1. Kendilerine atanmış onaylı müşterileri görür
+    // 1. Kendilerine atanmış müşterileri görür
     // 2. Hiç kimseye atanmamış (mevcut/yöneticinin) müşterileri görür (salesRepId: null)
-    // 3. Tüm onay bekleyenleri görür (isApproved: false)
     whereClause.OR = [
-      { salesRepId: (session.user as any).id, isApproved: true },
-      { salesRepId: null, isApproved: true },
-      { isApproved: false }
+      { salesRepId: (session.user as any).id },
+      { salesRepId: null }
     ]
   }
 
