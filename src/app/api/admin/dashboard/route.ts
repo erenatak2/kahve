@@ -1,10 +1,14 @@
+import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import AdminDashboardClient from './AdminDashboardClient'
-import { redirect } from 'next/navigation'
 
-async function getDashboardData(session: any) {
+export async function GET(req: NextRequest) {
+  const session = await getServerSession(authOptions)
+  if (!session || !['ADMIN', 'SATICI'].includes((session.user as any).role)) {
+    return NextResponse.json({ error: 'Yetkisiz' }, { status: 401 })
+  }
+
   const userId = (session.user as any).id
   const role = (session.user as any).role
   const isSalesRep = role === 'SATICI'
@@ -45,7 +49,7 @@ async function getDashboardData(session: any) {
     }
   })
 
-  // 3. Bekleyen Ödemeler / Alacaklar
+  // 3. Bekleyen Ödemeler / Alacaklar (Nokta atışı sorgu)
   const pendingPayments = await prisma.collection.findMany({
     where: {
       status: { in: ['BEKLIYOR', 'GECIKTI'] },
@@ -55,10 +59,10 @@ async function getDashboardData(session: any) {
       order: { select: { customer: { select: { user: { select: { name: true } } } } } }
     },
     orderBy: { dueDate: 'asc' },
-    take: 4
+    take: 20
   })
 
-  // 4. Hatırlatıcılar
+  // 4. Hatırlatıcılar (Bugün ve gelecek)
   const today = new Date()
   today.setHours(0, 0, 0, 0)
 
@@ -74,10 +78,10 @@ async function getDashboardData(session: any) {
       customer: { select: { user: { select: { name: true } } } }
     },
     orderBy: { reminderAt: 'asc' },
-    take: 5
+    take: 10
   })
 
-  return {
+  return NextResponse.json({
     stats: {
       totalOrders,
       totalRevenue: totalRevenue._sum.totalAmount || 0,
@@ -87,17 +91,5 @@ async function getDashboardData(session: any) {
     recentOrders,
     pendingPayments,
     reminders
-  }
-}
-
-export default async function AdminPage() {
-  const session = await getServerSession(authOptions)
-
-  if (!session || !['ADMIN', 'SATICI'].includes((session?.user as any)?.role)) {
-    redirect('/auth/login')
-  }
-
-  const dashboardData = await getDashboardData(session)
-
-  return <AdminDashboardClient initialData={dashboardData} session={session} />
+  })
 }
