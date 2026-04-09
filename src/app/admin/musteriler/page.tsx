@@ -8,7 +8,7 @@ export default function MusterilerPage() {
   const [customers, setCustomers] = useState<any[]>([])
   const [products, setProducts] = useState<any[]>([])
   const [staff, setStaff] = useState<any[]>([])
-,StartLine:12,TargetContent:  const [activeTab, setActiveTab] = useState<'approved' | 'pending'>('approved')
+  const [activeTab, setActiveTab] = useState<'approved' | 'pending'>('approved')
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [showAddDialog, setShowAddDialog] = useState(false)

@@ -14,7 +14,7 @@ import { formatCurrency, formatDate, ORDER_STATUS, ORDER_STATUS_COLOR, PAYMENT_M
 export default function SiparislerPage() {
   const { data: session } = useSession()
   const [orders, setOrders] = useState<any[]>([])
-,StartLine:18,TargetContent:  const [customers, setCustomers] = useState<any[]>([])
+  const [customers, setCustomers] = useState<any[]>([])
   const [products, setProducts] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
