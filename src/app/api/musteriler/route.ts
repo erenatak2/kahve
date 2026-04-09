@@ -16,12 +16,15 @@ export async function GET() {
   
   if (role === 'SATICI') {
     whereClause.salesRepId = (session.user as any).id
-    whereClause.isApproved = true // Sadece onaylanmış müşteriler satıcı panelinde gözükür
+    whereClause.isApproved = true 
   } else if (role === 'ADMIN') {
-    // Adminler sadece KENDİ onaylı müşterilerini görebilir
-    // AMA tüm onay bekleyenleri (isApproved: false) görebilmeliler ki atama yapabilsinler
+    // Adminler:
+    // 1. Kendilerine atanmış onaylı müşterileri görür
+    // 2. Hiç kimseye atanmamış (mevcut/yöneticinin) müşterileri görür (salesRepId: null)
+    // 3. Tüm onay bekleyenleri görür (isApproved: false)
     whereClause.OR = [
       { salesRepId: (session.user as any).id, isApproved: true },
+      { salesRepId: null, isApproved: true },
       { isApproved: false }
     ]
   }
