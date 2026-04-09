@@ -31,7 +31,7 @@ export default function SiparislerPage() {
   const [editNotes, setEditNotes] = useState<{ id: string; value: string } | null>(null)
   const [editDate, setEditDate] = useState<{ id: string; value: string } | null>(null)
   const [confirmDialog, setConfirmDialog] = useState<{ orderId: string; status: string; orderNumber?: string; reminderAt?: string; reminderNote?: string } | null>(null)
-  const [reminderEdit, setReminderEdit] = useState<{ id: string, date: string, note: string } | null>(null)
+  const [reminderEdit, setReminderEdit] = useState<{ id: string, date: string, note: string, days: string } | null>(null)
   const [kargoDialog, setKargoDialog] = useState<{ orderId: string; cargoCompany: string; trackingNumber: string } | null>(null)
   const { toast } = useToast()
 
@@ -178,6 +178,19 @@ export default function SiparislerPage() {
   const formatInitialDate = (date: any) => {
     if (!date) return ''
     return new Date(date).toISOString().split('T')[0]
+  }
+
+  const getDaysDiff = (dateStr: string) => {
+    if (!dateStr) return ''
+    const today = new Date(); today.setHours(0,0,0,0)
+    const target = new Date(dateStr); target.setHours(0,0,0,0)
+    const diff = Math.ceil((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+    return diff >= 0 ? diff.toString() : '0'
+  }
+
+  const getDateAfterDays = (days: number) => {
+    const d = new Date(); d.setDate(d.getDate() + (isNaN(days) ? 0 : days))
+    return d.toISOString().split('T')[0]
   }
 
 
@@ -522,11 +535,15 @@ export default function SiparislerPage() {
                                 variant="ghost" 
                                 size="sm" 
                                 className="h-6 px-2 text-[10px] text-orange-700 hover:bg-orange-100"
-                                onClick={() => setReminderEdit({ 
-                                  id: o.id, 
-                                  date: formatInitialDate(o.reminderAt), 
-                                  note: o.reminderNote || '' 
-                                })}
+                                onClick={() => {
+                                  const d = formatInitialDate(o.reminderAt)
+                                  setReminderEdit({ 
+                                    id: o.id, 
+                                    date: d, 
+                                    note: o.reminderNote || '',
+                                    days: getDaysDiff(d)
+                                  })
+                                }}
                               >
                                 {o.reminderAt ? 'Düzenle' : 'Takip Ekle'}
                               </Button>
@@ -563,26 +580,57 @@ export default function SiparislerPage() {
                               </div>
                             </div>
                           ) : (
-                            <div className="grid grid-cols-2 gap-3">
-                              <div className="space-y-1">
-                                <Label className="text-[10px] text-orange-700">Yeni Tarih</Label>
+                            <div className="grid grid-cols-12 gap-3">
+                              <div className="col-span-5 space-y-1">
+                                <Label className="text-[10px] text-orange-700">Tarih</Label>
                                 <Input 
                                   type="date" 
                                   className="h-8 text-xs bg-white border-orange-200 focus:ring-orange-500" 
                                   value={reminderEdit.date} 
-                                  onChange={e => setReminderEdit({...reminderEdit, date: e.target.value})}
+                                  onChange={e => {
+                                    const newDate = e.target.value
+                                    setReminderEdit({
+                                      ...reminderEdit, 
+                                      date: newDate, 
+                                      days: getDaysDiff(newDate)
+                                    })
+                                  }}
                                 />
                               </div>
-                              <div className="space-y-1">
+                              <div className="col-span-2 space-y-1">
+                                <Label className="text-[10px] text-orange-700">Gün</Label>
+                                <Input 
+                                  type="number" 
+                                  placeholder="0"
+                                  className="h-8 text-xs bg-white border-orange-200 focus:ring-orange-500" 
+                                  value={reminderEdit.days} 
+                                  onChange={e => {
+                                    const days = parseInt(e.target.value)
+                                    setReminderEdit({
+                                      ...reminderEdit, 
+                                      days: e.target.value,
+                                      date: getDateAfterDays(days)
+                                    })
+                                  }}
+                                />
+                              </div>
+                              <div className="col-span-5 space-y-1">
                                 <Label className="text-[10px] text-orange-700">Takip Notu</Label>
                                 <Input 
-                                  placeholder="Örn: Memnuniyet sor" 
+                                  placeholder="Hatırlatma notu..." 
                                   className="h-8 text-xs bg-white border-orange-200 focus:ring-orange-500"
                                   value={reminderEdit.note}
                                   onChange={e => setReminderEdit({...reminderEdit, note: e.target.value})}
                                 />
                               </div>
                             </div>
+                            {reminderEdit.date && (
+                              <p className="text-[9px] text-orange-500 text-right">
+                                {parseInt(reminderEdit.days) === 0 ? 'Bugün aranacak' : 
+                                 parseInt(reminderEdit.days) > 0 ? `${reminderEdit.days} gün sonra aranacak` : 
+                                 'Geçmiş bir tarih'}
+                              </p>
+                            )}
                           )}
                         </div>
                       )}
