@@ -32,10 +32,8 @@ export async function GET(req: NextRequest) {
   let where: any = { ...dateFilter }
   if (role === 'MUSTERI') {
     where.customerId = customerId
-  } else if (role === 'SATICI') {
+  } else if (role === 'SATICI' || role === 'ADMIN') {
     where.customer = { salesRepId: (session.user as any).id }
-    if (filterCustomerId) where.customerId = filterCustomerId
-  } else {
     if (filterCustomerId) where.customerId = filterCustomerId
   }
 

@@ -1,7 +1,6 @@
 import { useSession } from 'next-auth/react'
 import { Plus, Search, Tag, KeyRound, Trash2, Pencil, DollarSign, ShoppingBag, AlertTriangle, FileSpreadsheet, FileText, UserCheck, Users2 } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
-import { Switch } from '@/components/ui/switch'
 
 export default function MusterilerPage() {
   const { data: session } = useSession()
@@ -9,8 +8,7 @@ export default function MusterilerPage() {
   const [customers, setCustomers] = useState<any[]>([])
   const [products, setProducts] = useState<any[]>([])
   const [staff, setStaff] = useState<any[]>([])
-  const [onlyMyCustomers, setOnlyMyCustomers] = useState(false)
-  const [activeTab, setActiveTab] = useState<'approved' | 'pending'>('approved')
+,StartLine:12,TargetContent:  const [activeTab, setActiveTab] = useState<'approved' | 'pending'>('approved')
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [showAddDialog, setShowAddDialog] = useState(false)
@@ -247,14 +245,10 @@ export default function MusterilerPage() {
   const filtered = customers.filter((c: any) => {
     const isApprovedMatch = activeTab === 'approved' ? c.isApproved : !c.isApproved
     if (!isApprovedMatch) return false
-
     const searchMatch = 
       c.user?.name?.toLowerCase().includes(search.toLowerCase()) ||
       c.user?.email?.toLowerCase().includes(search.toLowerCase())
-    
-    const isMyCustomer = activeTab === 'pending' || !onlyMyCustomers || c.salesRepId === (session?.user as any)?.id
-
-    return searchMatch && isMyCustomer
+    return searchMatch
   })
 
   const pendingCount = customers.filter(c => !c.isApproved).length
@@ -267,19 +261,6 @@ export default function MusterilerPage() {
             <h1 className="text-xl md:text-2xl font-bold text-gray-900">Müşteriler</h1>
             <p className="text-gray-500 text-sm">{customers.length} müşteri kayıtlı</p>
           </div>
-          {session?.user?.role === 'ADMIN' && (
-            <div className="flex items-center gap-2 bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100 shadow-sm transition-all hover:bg-blue-100">
-              <Switch 
-                id="my-customers" 
-                checked={onlyMyCustomers} 
-                onCheckedChange={setOnlyMyCustomers}
-              />
-              <Label htmlFor="my-customers" className="text-[11px] font-semibold text-blue-800 cursor-pointer flex items-center gap-1.5 whitespace-nowrap">
-                {onlyMyCustomers ? <UserCheck className="h-3 w-3" /> : <Users2 className="h-3 w-3" />}
-                Sadece Benim Müşterilerim
-              </Label>
-            </div>
-          )}
         </div>
         <div className="flex items-center gap-2">
           <div className="flex bg-gray-100 p-1 rounded-lg">
