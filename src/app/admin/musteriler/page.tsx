@@ -1,5 +1,16 @@
+'use client'
+
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { Plus, Search, Tag, KeyRound, Trash2, Pencil, DollarSign, ShoppingBag, AlertTriangle, FileSpreadsheet, FileText, UserCheck, Users2 } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { useToast } from '@/components/ui/use-toast'
 import { formatCurrency } from '@/lib/utils'
 
 export default function MusterilerPage() {
