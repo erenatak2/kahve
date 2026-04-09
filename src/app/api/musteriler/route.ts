@@ -22,8 +22,13 @@ export async function GET() {
     include: {
       user: { select: { id: true, name: true, email: true, createdAt: true } },
       salesRep: { select: { id: true, name: true } },
-      orders: { select: { id: true, totalAmount: true, status: true, createdAt: true, payments: { select: { amount: true, status: true } } } },
-      customerPrices: { include: { product: { select: { name: true } } } },
+      orders: { 
+        select: { 
+          totalAmount: true, 
+          payments: { select: { amount: true, status: true } } 
+        } 
+      },
+      _count: { select: { customerPrices: true } }
     },
     orderBy: { createdAt: 'desc' },
   })

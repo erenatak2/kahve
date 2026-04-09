@@ -21,104 +21,32 @@ export async function GET() {
       name: true,
       email: true,
       role: true,
-      createdAt: true,
-      customer: {
-        select: {
-          id: true,
-          salesRepId: true,
-          user: { select: { name: true } }
-        }
-      }
+      createdAt: true
     },
     orderBy: { createdAt: 'desc' }
   })
 
-  // Her üye için satış verilerini hesapla
+  // Her üye için sadece temel istatistikleri hesapla (Hızlı)
   const teamWithStats = await Promise.all(team.map(async (member) => {
-    // Toplam sattığı tutar ve sipariş sayısını bul
-    const orders = await prisma.order.findMany({
+    const orderStats = await prisma.order.aggregate({
       where: {
         status: { not: 'IPTAL' },
         customer: { salesRepId: member.id }
       },
-      select: { totalAmount: true }
+      _sum: { totalAmount: true },
+      _count: { id: true }
     })
 
-    const totalSales = orders.reduce((sum, o) => sum + o.totalAmount, 0)
-    const orderCount = orders.length
-
-    // Atanmış müşteri sayısını bul
     const customerCount = await prisma.customer.count({
       where: { salesRepId: member.id, isActive: true }
     })
 
-    // Detaylı müşteri ve sipariş listesini bul
-    const customers = await prisma.customer.findMany({
-      where: { salesRepId: member.id, isActive: true },
-      select: {
-        id: true,
-        user: { select: { name: true } },
-        orders: {
-          where: { status: { not: 'IPTAL' } },
-          select: { totalAmount: true }
-        }
-      }
-    })
-
-    const customerDetails = customers.map(c => ({
-      id: c.id,
-      name: c.user.name,
-      totalSales: c.orders.reduce((sum, o) => sum + o.totalAmount, 0),
-      orderCount: c.orders.length
-    })).sort((a, b) => b.totalSales - a.totalSales)
-
-    const recentOrders = await prisma.order.findMany({
-      where: {
-        status: { not: 'IPTAL' },
-        customer: { salesRepId: member.id }
-      },
-      take: 10,
-      orderBy: { createdAt: 'desc' },
-      include: {
-        customer: { include: { user: { select: { name: true } } } },
-        orderItems: { include: { product: { select: { name: true } } } }
-      }
-    })
-
-    // Ürün bazlı satış toplamlarını hesapla
-    const productStatsMap: any = {}
-    const memberOrders = await prisma.order.findMany({
-      where: {
-        status: { not: 'IPTAL' },
-        customer: { salesRepId: member.id }
-      },
-      include: {
-        orderItems: { include: { product: { select: { name: true } } } }
-      }
-    })
-
-    memberOrders.forEach(order => {
-      order.orderItems.forEach(item => {
-        const pName = item.product.name
-        if (!productStatsMap[pName]) {
-          productStatsMap[pName] = { name: pName, quantity: 0, total: 0 }
-        }
-        productStatsMap[pName].quantity += item.quantity
-        productStatsMap[pName].total += item.total
-      })
-    })
-
-    const productDetails = Object.values(productStatsMap).sort((a: any, b: any) => b.total - a.total)
-
     return {
       ...member,
       stats: {
-        totalSales,
-        orderCount,
-        customerCount,
-        customerDetails,
-        recentOrders,
-        productDetails
+        totalSales: orderStats._sum.totalAmount || 0,
+        orderCount: orderStats._count.id || 0,
+        customerCount: customerCount
       }
     }
   }))

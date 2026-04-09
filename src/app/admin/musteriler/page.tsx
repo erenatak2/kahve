@@ -254,22 +254,31 @@ export default function MusterilerPage() {
     }
   }
 
-  const handleOpenPricing = (c: any) => {
+  const handleOpenPricing = async (c: any) => {
     setSelectedCustomer(c)
     setPriceSearch('')
-    const prices: Record<string, string> = {}
-    const discounts: Record<string, string> = {}
-    for (const cp of c.customerPrices || []) {
-      prices[cp.productId] = cp.price.toString()
-      const product = products.find((pr: any) => pr.id === cp.productId)
-      if (product && product.salePrice > 0) {
-        const disc = ((product.salePrice - cp.price) / product.salePrice) * 100
-        discounts[cp.productId] = disc.toFixed(1)
-      }
-    }
-    setDraftPrices(prices)
-    setDraftDiscounts(discounts)
     setShowPriceDialog(true)
+    
+    try {
+      const res = await fetch(`/api/musteriler/${c.id}/fiyatlar`)
+      const customerPrices = await res.json()
+      
+      const prices: Record<string, string> = {}
+      const discounts: Record<string, string> = {}
+      
+      for (const cp of customerPrices || []) {
+        prices[cp.productId] = cp.price.toString()
+        const product = products.find((pr: any) => pr.id === cp.productId)
+        if (product && product.salePrice > 0) {
+          const disc = ((product.salePrice - cp.price) / product.salePrice) * 100
+          discounts[cp.productId] = disc.toFixed(1)
+        }
+      }
+      setDraftPrices(prices)
+      setDraftDiscounts(discounts)
+    } catch (err) {
+      toast({ title: 'Fiyatlar yüklenemedi', variant: 'destructive' })
+    }
   }
 
   const filtered = customers.filter((c: any) => {
@@ -330,7 +339,7 @@ export default function MusterilerPage() {
               {filtered.map((c: any) => {
                 const totalCiro = c.orders?.reduce((sum: number, o: any) => sum + o.totalAmount, 0) || 0
                 const totalPending = c.orders?.reduce((sum: number, o: any) => sum + (o.payments?.filter((p: any) => p.status === 'BEKLIYOR' || p.status === 'GECIKTI').reduce((s: number, p: any) => s + p.amount, 0) || 0), 0) || 0
-                const specialPriceCount = c.customerPrices?.length || 0
+                const specialPriceCount = c._count?.customerPrices || 0
                 return (
                   <TableRow key={c.id}>
                     <TableCell>
