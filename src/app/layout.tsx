@@ -9,7 +9,9 @@ export const metadata = {
   title: 'Satış Yönetim v4.1',
   description: 'Proje Giriş Paneli',
   icons: {
-    icon: '/favicon.ico',
+    icon: [
+      { url: '/favicon.ico', href: '/favicon.ico' },
+    ],
   },
   robots: {
     index: false,
