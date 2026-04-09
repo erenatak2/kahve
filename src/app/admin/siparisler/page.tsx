@@ -180,15 +180,6 @@ export default function SiparislerPage() {
     return new Date(date).toISOString().split('T')[0]
   }
 
-  const saveDate = async (orderId: string, dateValue: string) => {
-    await fetch(`/api/siparisler/${orderId}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ orderDate: new Date(dateValue).toISOString() }),
-    })
-    setEditDate(null)
-    fetchAll()
-  }
 
   const repeatOrder = async (order: any) => {
     const outOfStock = order.orderItems.filter((i: any) => {
