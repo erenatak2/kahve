@@ -39,7 +39,7 @@ export default function MusteriUrunler() {
           <h1 className="text-xl font-bold text-gray-900">Ürün Kataloğu</h1>
           <p className="text-gray-500 text-sm">{products.length} ürün</p>
         </div>
-        <span className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded mt-1 font-bold">Fiyatlar KDV DAHİLDİR</span>
+        <span className="text-xs text-green-600 bg-green-50 px-2 py-1 rounded mt-1 font-medium border border-green-100">Fiyatlar KDV DAHİLDİR (+%20)</span>
       </div>
 
       {loading ? (
@@ -82,7 +82,8 @@ export default function MusteriUrunler() {
                 const stockInfo = getStockInfo(p)
                 const hasSpecialPrice = p.customerPrice != null && p.customerPrice !== p.salePrice
                 const basePrice = p.customerPrice ?? p.salePrice
-                const displayPrice = basePrice * 1.2 // %20 KDV dahil
+                const displayPrice = basePrice * 1.2 // KDV Dahil
+                const originalPrice = p.salePrice * 1.2 // KDV Dahil
                 const hasDiscount = p.discountRate && p.discountRate > 0
                 return (
                   <Card key={p.id} className={p.stock <= 0 ? 'opacity-60' : ''}>
@@ -113,7 +114,7 @@ export default function MusteriUrunler() {
                         <div className="text-right shrink-0">
                           <p className="font-bold text-base text-blue-600">{formatCurrency(displayPrice)}</p>
                           {hasSpecialPrice && (
-                            <p className="text-xs text-gray-400 line-through">{formatCurrency(p.salePrice * 1.2)}</p>
+                            <p className="text-xs text-gray-400 line-through">{formatCurrency(originalPrice)}</p>
                           )}
                           {hasDiscount && p.discountRate > 0 && (
                             <span className="text-[10px] bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded font-medium">%{p.discountRate} İndirim</span>

@@ -14,7 +14,8 @@ export async function GET(req: NextRequest) {
   const reminders = await prisma.order.findMany({
     where: {
       reminderAt: { 
-        not: null
+        not: null,
+        lte: now 
       },
       followupStatus: 'BEKLIYOR',
       ...(role === 'SATICI' && {

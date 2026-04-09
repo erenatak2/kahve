@@ -42,7 +42,7 @@ export async function GET(req: NextRequest) {
   const orders = await prisma.order.findMany({
     where,
     include: {
-      customer: { include: { user: { select: { name: true } } } },
+      customer: { include: { user: { select: { name: true } }, salesRep: { select: { name: true } } } },
       orderItems: { include: { product: true } },
       payments: true,
       paymentNotifications: true,
@@ -77,18 +77,26 @@ export async function POST(req: NextRequest) {
       if (!product) throw new Error(`Ürün bulunamadı: ${item.productId}`)
 
       const customPrice = customerPrices.find((cp: { productId: string; price: number }) => cp.productId === item.productId)
-        let unitPrice = item.unitPrice ?? customPrice?.price ?? product.salePrice
-        if (!customPrice && customer?.discountRate && customer.discountRate > 0) {
-          unitPrice = product.salePrice * (1 - customer.discountRate / 100)
-        }
+      let basePrice = item.unitPrice ?? customPrice?.price ?? product.salePrice
+      
+      // İndirim varsa uygula
+      if (!customPrice && customer?.discountRate && customer.discountRate > 0) {
+        basePrice = product.salePrice * (1 - customer.discountRate / 100)
+      }
 
-        unitPrice = unitPrice * 1.2 // %20 KDV ekle
+      // KDV Ekle (%20)
+      const unitPriceWithKdv = basePrice * 1.2
 
-        return { productId: item.productId, quantity: item.quantity, unitPrice, total: unitPrice * item.quantity }
-      })
-    )
+      return { 
+        productId: item.productId, 
+        quantity: item.quantity, 
+        unitPrice: unitPriceWithKdv, 
+        total: unitPriceWithKdv * item.quantity 
+      }
+    })
+  )
 
-    const totalAmount = orderItems.reduce((sum, item) => sum + item.total, 0)
+  const totalAmount = orderItems.reduce((sum, item) => sum + item.total, 0)
 
   // Sipariş numarası üret: SP-YYYYMMDD-XXXX
   const now = new Date()

@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
           const [orderCount, notificationCount, customerCount, reminderCount] = await Promise.all([
             prisma.order.count({ where: { status: 'HAZIRLANIYOR' } }),
             prisma.paymentNotification.count({ where: { status: 'BEKLIYOR' } }),
-            prisma.customer.count(),
+            prisma.customer.count({ where: { isApproved: false } }),
             prisma.order.count({ where: { followupStatus: 'BEKLIYOR', reminderAt: { not: null } } })
           ])
           

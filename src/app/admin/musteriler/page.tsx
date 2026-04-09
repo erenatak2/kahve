@@ -1,21 +1,16 @@
-'use client'
-
-import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Card, CardContent } from '@/components/ui/card'
-import { useToast } from '@/components/ui/use-toast'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Plus, Search, Tag, KeyRound, Trash2, Pencil, DollarSign, ShoppingBag, AlertTriangle, FileSpreadsheet, FileText } from 'lucide-react'
+import { useSession } from 'next-auth/react'
+import { Plus, Search, Tag, KeyRound, Trash2, Pencil, DollarSign, ShoppingBag, AlertTriangle, FileSpreadsheet, FileText, UserCheck, Users2 } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
+import { Switch } from '@/components/ui/switch'
 
 export default function MusterilerPage() {
+  const { data: session } = useSession()
   const router = useRouter()
   const [customers, setCustomers] = useState<any[]>([])
   const [products, setProducts] = useState<any[]>([])
+  const [staff, setStaff] = useState<any[]>([])
+  const [onlyMyCustomers, setOnlyMyCustomers] = useState(false)
+  const [activeTab, setActiveTab] = useState<'approved' | 'pending'>('approved')
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [showAddDialog, setShowAddDialog] = useState(false)
@@ -23,14 +18,14 @@ export default function MusterilerPage() {
   const [showPriceDialog, setShowPriceDialog] = useState(false)
   const [showPasswordDialog, setShowPasswordDialog] = useState(false)
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null)
-  const [form, setForm] = useState({ name: '', email: '', password: '', phone: '', address: '', shippingAddress: '', city: 'İstanbul', taxNumber: '', discountRate: '0', notes: '' })
+  const [form, setForm] = useState({ name: '', email: '', password: '', phone: '', address: '', shippingAddress: '', city: 'İstanbul', taxNumber: '', discountRate: '0', notes: '', salesRepId: '' })
   const [draftPrices, setDraftPrices] = useState<Record<string, string>>({})
   const [draftDiscounts, setDraftDiscounts] = useState<Record<string, string>>({})
   const [priceSearch, setPriceSearch] = useState('')
   const [passwordValue, setPasswordValue] = useState('')
   const [sameAddress, setSameAddress] = useState(false)
   const [editSameAddress, setEditSameAddress] = useState(false)
-  const [editForm, setEditForm] = useState({ name: '', phone: '', address: '', shippingAddress: '', city: '', taxNumber: '', discountRate: '0', notes: '' })
+  const [editForm, setEditForm] = useState({ name: '', phone: '', address: '', shippingAddress: '', city: '', taxNumber: '', discountRate: '0', notes: '', salesRepId: '' })
   const [deleteConfirm, setDeleteConfirm] = useState<{ customerId: string; name: string } | null>(null)
   const [exportDialog, setExportDialog] = useState<{ customerId: string; name: string } | null>(null)
   const [exportRange, setExportRange] = useState({ startDate: '', endDate: '' })
@@ -41,9 +36,11 @@ export default function MusterilerPage() {
     Promise.all([
       fetch('/api/musteriler').then(r => r.json()),
       fetch('/api/urunler').then(r => r.json()),
-    ]).then(([c, p]) => { 
+      session?.user?.role === 'ADMIN' ? fetch('/api/admin/ekip').then(r => r.json()) : Promise.resolve([]),
+    ]).then(([c, p, s]) => { 
       setCustomers(Array.isArray(c) ? c : []) 
       setProducts(Array.isArray(p) ? p : []) 
+      setStaff(Array.isArray(s) ? s : [])
       setLoading(false) 
     })
   }
@@ -60,7 +57,7 @@ export default function MusterilerPage() {
     if (res.ok) {
       toast({ title: 'Müşteri eklendi' })
       setShowAddDialog(false)
-      setForm({ name: '', email: '', password: '', phone: '', address: '', shippingAddress: '', city: 'İstanbul', taxNumber: '', discountRate: '0', notes: '' })
+      setForm({ name: '', email: '', password: '', phone: '', address: '', shippingAddress: '', city: 'İstanbul', taxNumber: '', discountRate: '0', notes: '', salesRepId: '' })
       fetchAll()
     } else {
       const err = await res.json().catch(() => ({}))
@@ -90,6 +87,7 @@ export default function MusterilerPage() {
       taxNumber: c.taxNumber || '',
       discountRate: c.discountRate?.toString() || '0',
       notes: c.notes || '',
+      salesRepId: c.salesRepId || '',
     })
     // Shipping address address ile aynıysa veya boşsa checkbox isaretli gelsin
     setEditSameAddress(!c.shippingAddress || c.shippingAddress === c.address)
@@ -101,7 +99,7 @@ export default function MusterilerPage() {
     const res = await fetch(`/api/musteriler/${selectedCustomer.id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...editForm, discountRate: parseFloat(editForm.discountRate) }),
+      body: JSON.stringify({ ...editForm, isApproved: selectedCustomer.isApproved, discountRate: parseFloat(editForm.discountRate) }),
     })
     if (res.ok) { toast({ title: 'Müşteri güncellendi' }); setShowEditDialog(false); fetchAll() }
     else toast({ title: 'Hata', variant: 'destructive' })
@@ -179,7 +177,6 @@ export default function MusterilerPage() {
       XLSX.utils.book_append_sheet(wb, ws, 'Siparişler')
       const safeName = exportDialog.name.replace(/[^a-zA-Z0-9çşıöüğÇŞİÖÜĞ ]/g, '')
       
-      // writeFile yerine Blob kullan - daha güvenilir (encoding sorununu önler)
       const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' })
       const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
       const url = URL.createObjectURL(blob)
@@ -247,19 +244,65 @@ export default function MusterilerPage() {
     setShowPriceDialog(true)
   }
 
-  const filtered = customers.filter((c: any) =>
-    c.user?.name?.toLowerCase().includes(search.toLowerCase()) ||
-    c.user?.email?.toLowerCase().includes(search.toLowerCase())
-  )
+  const filtered = customers.filter((c: any) => {
+    const isApprovedMatch = activeTab === 'approved' ? c.isApproved : !c.isApproved
+    if (!isApprovedMatch) return false
+
+    const searchMatch = 
+      c.user?.name?.toLowerCase().includes(search.toLowerCase()) ||
+      c.user?.email?.toLowerCase().includes(search.toLowerCase())
+    
+    const isMyCustomer = activeTab === 'pending' || !onlyMyCustomers || c.salesRepId === (session?.user as any)?.id
+
+    return searchMatch && isMyCustomer
+  })
+
+  const pendingCount = customers.filter(c => !c.isApproved).length
 
   return (
     <div className="p-4 md:p-6 space-y-4">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl md:text-2xl font-bold text-gray-900">Müşteriler</h1>
-          <p className="text-gray-500 text-sm">{customers.length} müşteri kayıtlı</p>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+        <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4">
+          <div>
+            <h1 className="text-xl md:text-2xl font-bold text-gray-900">Müşteriler</h1>
+            <p className="text-gray-500 text-sm">{customers.length} müşteri kayıtlı</p>
+          </div>
+          {session?.user?.role === 'ADMIN' && (
+            <div className="flex items-center gap-2 bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100 shadow-sm transition-all hover:bg-blue-100">
+              <Switch 
+                id="my-customers" 
+                checked={onlyMyCustomers} 
+                onCheckedChange={setOnlyMyCustomers}
+              />
+              <Label htmlFor="my-customers" className="text-[11px] font-semibold text-blue-800 cursor-pointer flex items-center gap-1.5 whitespace-nowrap">
+                {onlyMyCustomers ? <UserCheck className="h-3 w-3" /> : <Users2 className="h-3 w-3" />}
+                Sadece Benim Müşterilerim
+              </Label>
+            </div>
+          )}
         </div>
-        <Button onClick={() => setShowAddDialog(true)}><Plus className="mr-2 h-4 w-4" />Yeni Müşteri</Button>
+        <div className="flex items-center gap-2">
+          <div className="flex bg-gray-100 p-1 rounded-lg">
+            <button 
+              onClick={() => setActiveTab('approved')}
+              className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${activeTab === 'approved' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+            >
+              Onaylılar
+            </button>
+            <button 
+              onClick={() => setActiveTab('pending')}
+              className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all flex items-center gap-1.5 ${activeTab === 'pending' ? 'bg-white text-orange-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+            >
+              Onay Bekleyenler
+              {pendingCount > 0 && (
+                <span className="flex h-4 w-4 items-center justify-center rounded-full bg-orange-500 text-[10px] text-white">
+                  {pendingCount}
+                </span>
+              )}
+            </button>
+          </div>
+          <Button onClick={() => setShowAddDialog(true)}><Plus className="mr-2 h-4 w-4" />Yeni Müşteri</Button>
+        </div>
       </div>
 
       <div className="relative">
@@ -276,7 +319,7 @@ export default function MusterilerPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Müşteri</TableHead>
+                <TableHead>Müşteri / Plasiyer</TableHead>
                 <TableHead className="hidden md:table-cell">İletişim</TableHead>
                 <TableHead className="hidden lg:table-cell text-right">Sipariş</TableHead>
                 <TableHead className="hidden lg:table-cell text-right">Ciro</TableHead>
@@ -291,10 +334,17 @@ export default function MusterilerPage() {
                 const totalPending = c.orders?.reduce((sum: number, o: any) => sum + (o.payments?.filter((p: any) => p.status === 'BEKLIYOR' || p.status === 'GECIKTI').reduce((s: number, p: any) => s + p.amount, 0) || 0), 0) || 0
                 const specialPriceCount = c.customerPrices?.length || 0
                 return (
-                  <TableRow key={c.id}>
+                  <TableRow key={c.id} className={!c.isApproved ? 'bg-orange-50/50' : ''}>
                     <TableCell>
                       <div>
-                        <p className="font-medium">{c.user?.name}</p>
+                        <p className="font-medium flex items-center gap-1.5">
+                          {c.user?.name}
+                          {c.salesRep && (
+                            <span className="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded-full border border-gray-200" title={`Sorumlu: ${c.salesRep.name}`}>
+                              {c.salesRep.name}
+                            </span>
+                          )}
+                        </p>
                         <p className="text-xs text-gray-500 md:hidden">{c.user?.email}</p>
                         <div className="flex gap-2 mt-1 lg:hidden">
                           <span className="text-xs text-gray-500">{c.orders?.length || 0} sip.</span>
@@ -326,21 +376,44 @@ export default function MusterilerPage() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-2">
-                        <Button variant="outline" size="sm" onClick={() => handleOpenPricing(c)} className="gap-1">
-                          <DollarSign className="h-4 w-4" />
-                          <span className="hidden sm:inline">Özel Fiyatlar</span>
-                          {specialPriceCount > 0 && (
-                            <span className="bg-blue-600 text-white text-[10px] px-1.5 py-0.5 rounded-full">{specialPriceCount}</span>
-                          )}
-                        </Button>
-                        <Button variant="outline" size="sm" onClick={() => handleEditCustomer(c)} className="gap-1">
-                          <Pencil className="h-4 w-4" />
-                          <span className="hidden sm:inline">Düzenle</span>
-                        </Button>
-                        <Button variant="outline" size="sm" onClick={() => { setExportDialog({ customerId: c.id, name: c.user?.name || '' }); setExportRange({ startDate: '', endDate: '' }) }} className="gap-1" title="Excel İndir">
-                          <FileSpreadsheet className="h-4 w-4 text-green-600" />
-                          <span className="hidden xl:inline">Excel</span>
-                        </Button>
+                        {activeTab === 'pending' ? (
+                          <Button 
+                            variant="default" 
+                            size="sm" 
+                            className="bg-orange-600 hover:bg-orange-700 h-8"
+                            onClick={() => {
+                              setSelectedCustomer(c)
+                              setEditForm({
+                                name: c.user.name,
+                                phone: c.phone || '',
+                                address: c.address || '',
+                                shippingAddress: c.shippingAddress || '',
+                                city: c.city || 'İstanbul',
+                                taxNumber: c.taxNumber || '',
+                                discountRate: c.discountRate?.toString() || '0',
+                                notes: c.notes || '',
+                                salesRepId: c.salesRepId || '',
+                              })
+                              setShowEditDialog(true)
+                            }}
+                          >
+                            <UserCheck className="h-4 w-4 mr-1.5" /> İncele & Onayla
+                          </Button>
+                        ) : (
+                          <>
+                            <Button variant="outline" size="sm" onClick={() => handleOpenPricing(c)} className="gap-1">
+                              <DollarSign className="h-4 w-4" />
+                              <span className="hidden sm:inline">Özel Fiyatlar</span>
+                              {specialPriceCount > 0 && (
+                                <span className="bg-blue-600 text-white text-[10px] px-1.5 py-0.5 rounded-full">{specialPriceCount}</span>
+                              )}
+                            </Button>
+                            <Button variant="ghost" size="icon" onClick={() => handleEditCustomer(c)}><Pencil className="h-4 w-4 text-blue-600" /></Button>
+                            <Button variant="ghost" size="icon" onClick={() => { setExportDialog({ customerId: c.id, name: c.user?.name || '' }); setExportRange({ startDate: '', endDate: '' }) }} className="gap-1" title="Excel İndir">
+                              <FileSpreadsheet className="h-4 w-4 text-green-600" />
+                            </Button>
+                          </>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
@@ -545,6 +618,23 @@ export default function MusterilerPage() {
                 <Label>Notlar</Label>
                 <Input value={form.notes} onChange={e => setForm({...form, notes: e.target.value})} />
               </div>
+
+              {session?.user?.role === 'ADMIN' && (
+                <div className="col-span-1 sm:col-span-2 space-y-2 pt-2 border-t">
+                  <Label className="text-xs text-gray-500 uppercase tracking-wider">Sorumlu Plasiyer Atama</Label>
+                  <select 
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+                    value={form.salesRepId}
+                    onChange={e => setForm({...form, salesRepId: e.target.value})}
+                  >
+                    <option value="">Plasiyer seçin (Boş bırakılırsa atanmaz)</option>
+                    {staff.map((s: any) => (
+                      <option key={s.id} value={s.id}>{s.name} ({s.role})</option>
+                    ))}
+                  </select>
+                  <p className="text-[10px] text-gray-400">Bu müşteri sadece atanan plasiyerin ekranında görünecektir.</p>
+                </div>
+              )}
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setShowAddDialog(false)}>İptal</Button>
@@ -743,6 +833,39 @@ export default function MusterilerPage() {
                 <Label>Notlar</Label>
                 <Input value={editForm.notes} onChange={e => setEditForm({...editForm, notes: e.target.value})} />
               </div>
+
+              {session?.user?.role === 'ADMIN' && (
+                <>
+                  <div className="col-span-1 sm:col-span-2 space-y-2 pt-2 border-t">
+                    <Label className="text-xs text-gray-500 uppercase tracking-wider font-bold">Kayıt Onayı & Plasiyer Atama</Label>
+                    <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-100">
+                      <div className="space-y-0.5">
+                        <Label htmlFor="approve-customer" className="text-sm font-medium cursor-pointer">Müşteriyi Onayla</Label>
+                        <p className="text-[10px] text-gray-500">Onaylanan müşteri sisteme giriş yapabilir ve sipariş verebilir.</p>
+                      </div>
+                      <Switch 
+                        id="approve-customer" 
+                        checked={selectedCustomer?.isApproved || false} 
+                        onCheckedChange={(checked) => setSelectedCustomer({...selectedCustomer, isApproved: checked})}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="col-span-1 sm:col-span-2 space-y-2">
+                    <Label className="text-xs text-gray-500 uppercase tracking-wider">Sorumlu Plasiyer</Label>
+                    <select 
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 transition-all hover:border-blue-300"
+                      value={editForm.salesRepId}
+                      onChange={e => setEditForm({...editForm, salesRepId: e.target.value})}
+                    >
+                      <option value="">Plasiyer seçin (Boş bırakılırsa yetkisiz kalır)</option>
+                      {staff.map((s: any) => (
+                        <option key={s.id} value={s.id}>{s.name} ({s.role})</option>
+                      ))}
+                    </select>
+                  </div>
+                </>
+              )}
             </div>
             <div className="border-t pt-4 space-y-3">
               <h4 className="text-sm font-semibold text-gray-700">Diğer İşlemler</h4>

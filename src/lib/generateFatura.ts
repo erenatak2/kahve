@@ -68,13 +68,13 @@ export function generateFatura(order: any) {
 
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(8)
-  doc.setTextColor(37, 99, 235)
-  doc.text('* Fiyatlara %20 KDV DAHILDIR.', 14, finalY)
+  doc.setTextColor(120, 120, 120)
+  doc.text('* Fiyatlar KDV dahildir.', 14, finalY)
   doc.setTextColor(0, 0, 0)
 
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(12)
-  doc.text(`GENEL TOPLAM: ${formatCurrency(order.totalAmount)}`, 196, finalY, { align: 'right' })
+  doc.text(`TOPLAM: ${formatCurrency(order.totalAmount)}`, 196, finalY, { align: 'right' })
 
   const paidAmount = (order.payments || [])
     .filter((p: any) => p.status === 'ODENDI')

@@ -15,12 +15,14 @@ export async function GET() {
   const whereClause: any = { isActive: true }
   if (role === 'SATICI') {
     whereClause.salesRepId = (session.user as any).id
+    whereClause.isApproved = true // Sadece onaylanmış müşteriler satıcı panelinde gözükür
   }
 
   const customers = await prisma.customer.findMany({
     where: whereClause,
     include: {
       user: { select: { id: true, name: true, email: true, createdAt: true } },
+      salesRep: { select: { id: true, name: true } },
       orders: { select: { id: true, totalAmount: true, status: true, createdAt: true, payments: { select: { amount: true, status: true } } } },
       customerPrices: { include: { product: { select: { name: true } } } },
     },
@@ -38,7 +40,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Yetkisiz' }, { status: 401 })
   }
 
-  const { name, email, password, phone, address, shippingAddress, city, taxNumber, discountRate, notes } = await req.json()
+  const { name, email, password, phone, address, shippingAddress, city, taxNumber, discountRate, notes, salesRepId } = await req.json()
 
   if (!name || !email) return NextResponse.json({ error: 'Ad ve e-posta zorunlu' }, { status: 400 })
 
@@ -46,6 +48,11 @@ export async function POST(req: NextRequest) {
   if (existing) return NextResponse.json({ error: 'Bu e-posta adresi zaten kayıtlı' }, { status: 409 })
 
   const hashedPassword = await bcrypt.hash(password || '123456', 10)
+
+  // Plasiyer belirleme: 
+  // 1. Gelen salesRepId varsa (Admin seçmiş olabilir)
+  // 2. İşlemi yapan SATICI ise kendisini ata
+  const assignedSalesRepId = salesRepId || (role === 'SATICI' ? (session.user as any).id : undefined)
 
   try {
     const user = await prisma.user.create({
@@ -57,7 +64,7 @@ export async function POST(req: NextRequest) {
         customer: {
           create: { 
             phone, address, shippingAddress, city, taxNumber, discountRate: discountRate || 0, notes,
-            ...(role === 'SATICI' ? { salesRepId: (session.user as any).id } : {})
+            ...(assignedSalesRepId ? { salesRepId: assignedSalesRepId } : {})
           },
         },
       },

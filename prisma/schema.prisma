@@ -60,6 +60,7 @@ model Customer {
   discountRate    Float    @default(0)
   salesRepId      String?  // Satış Temsilcisi (Plasiyer) bağlantısı
   notes           String?
+  isApproved      Boolean  @default(false) // Yönetici onayı (Boş müşteriler için)
   isActive        Boolean  @default(true)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt

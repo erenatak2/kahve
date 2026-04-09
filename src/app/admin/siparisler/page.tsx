@@ -6,12 +6,16 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useToast } from '@/components/ui/use-toast'
-import { Plus, ShoppingCart, Search, ChevronDown, ChevronUp, RefreshCw, CreditCard, Printer, Package, FileSpreadsheet } from 'lucide-react'
+import { useSession } from 'next-auth/react'
+import { Plus, ShoppingCart, Search, ChevronDown, ChevronUp, RefreshCw, CreditCard, Printer, Package, FileSpreadsheet, UserCheck, Users2 } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { formatCurrency, formatDate, ORDER_STATUS, ORDER_STATUS_COLOR, PAYMENT_METHOD, PAYMENT_STATUS_COLOR } from '@/lib/utils'
+import { Switch } from '@/components/ui/switch'
 
 export default function SiparislerPage() {
+  const { data: session } = useSession()
   const [orders, setOrders] = useState<any[]>([])
+  const [onlyMyCustomers, setOnlyMyCustomers] = useState(false)
   const [customers, setCustomers] = useState<any[]>([])
   const [products, setProducts] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -181,18 +185,37 @@ export default function SiparislerPage() {
   const filtered = orders.filter((o: any) => {
     const nameMatch = o.customer?.user?.name?.toLowerCase().includes(search.toLowerCase())
     const statusMatch = statusFilter === 'TUMU' || o.status === statusFilter
-    return nameMatch && statusMatch
+    
+    // Sadece benim müşterilerim filtresi (Adminler için)
+    const isMyCustomer = !onlyMyCustomers || o.customer?.salesRepId === (session?.user as any)?.id
+
+    return nameMatch && statusMatch && isMyCustomer
   })
 
   return (
     <div className="p-4 md:p-6 space-y-4 md:space-y-6">
       <div className="flex items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl md:text-2xl font-bold text-gray-900">Siparişler</h1>
-          <p className="text-gray-500 text-sm">
-            {filtered.length !== orders.length ? `${filtered.length} / ${orders.length} sipariş` : `${orders.length} sipariş`}
-            {filtered.length > 0 && ` • ${formatCurrency(filtered.reduce((s: number, o: any) => s + o.totalAmount, 0))}`}
-          </p>
+        <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4">
+          <div>
+            <h1 className="text-xl md:text-2xl font-bold text-gray-900">Siparişler</h1>
+            <p className="text-gray-500 text-sm">
+              {filtered.length !== orders.length ? `${filtered.length} / ${orders.length} sipariş` : `${orders.length} sipariş`}
+              {filtered.length > 0 && ` • ${formatCurrency(filtered.reduce((s: number, o: any) => s + o.totalAmount, 0))}`}
+            </p>
+          </div>
+          {session?.user?.role === 'ADMIN' && (
+            <div className="flex items-center gap-2 bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100 shadow-sm transition-all hover:bg-blue-100">
+              <Switch 
+                id="my-customers" 
+                checked={onlyMyCustomers} 
+                onCheckedChange={setOnlyMyCustomers}
+              />
+              <Label htmlFor="my-customers" className="text-[11px] font-semibold text-blue-800 cursor-pointer flex items-center gap-1.5 whitespace-nowrap">
+                {onlyMyCustomers ? <UserCheck className="h-3 w-3" /> : <Users2 className="h-3 w-3" />}
+                Sadece Benim Müşterilerim
+              </Label>
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={() => { 
@@ -334,9 +357,9 @@ export default function SiparislerPage() {
                       </div>
                     )
                   })}
-                  <div className="border-t pt-2 flex justify-between font-bold text-blue-600">
-                    <span>Toplam (KDV Dahil)</span>
-                    <span>{formatCurrency(items.reduce((s, i) => s + i.unitPrice * i.quantity, 0) * 1.2)}</span>
+                  <div className="border-t pt-2 flex justify-between font-bold">
+                    <span>Toplam</span>
+                    <span>{formatCurrency(items.reduce((s, i) => s + i.unitPrice * i.quantity, 0))}</span>
                   </div>
                 </div>
               )}
@@ -375,7 +398,15 @@ export default function SiparislerPage() {
                     <div className="flex items-center gap-2 min-w-0 flex-1">
                       <div className="bg-blue-50 p-1.5 rounded-lg shrink-0"><ShoppingCart className="h-3.5 w-3.5 text-blue-600" /></div>
                       <div className="min-w-0">
-                        <p className="font-semibold text-sm truncate">{o.customer?.user?.name}</p>
+                        <p className="font-semibold text-sm truncate flex items-center gap-2">
+                          {o.customer?.user?.name}
+                          {o.customer?.salesRep && (
+                            <span className="text-[10px] whitespace-nowrap font-normal bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded-full border border-gray-200 flex items-center gap-1">
+                              <Users2 className="h-2.5 w-2.5 text-gray-400" />
+                              Plasiyer: {o.customer.salesRep.name}
+                            </span>
+                          )}
+                        </p>
                         {o.orderNumber && <p className="text-[11px] font-mono text-blue-600">{o.orderNumber}</p>}
                         {editDate?.id === o.id ? (
                           <div className="flex items-center gap-1 mt-1">

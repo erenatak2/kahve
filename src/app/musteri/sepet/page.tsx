@@ -218,7 +218,10 @@ export default function SepetPage() {
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-sm truncate">{item.name}</p>
                       {item.code && <p className="text-xs text-gray-500">{item.code}</p>}
-                      <p className="text-sm text-gray-600">{formatCurrency(item.unitPrice)}</p>
+                      <p className="text-sm text-gray-600">
+                        {formatCurrency(item.unitPrice * 1.2)}
+                        <span className="text-[10px] text-green-600 ml-1">KDV Dahil</span>
+                      </p>
                     </div>
                     <div className="flex items-center gap-2">
                       <Button variant="outline" size="sm" className="h-8 w-8 p-0" onClick={() => updateQuantity(item.productId, -1)}>
@@ -235,7 +238,7 @@ export default function SepetPage() {
                       </Button>
                     </div>
                     <div className="text-right min-w-[80px]">
-                      <p className="font-bold text-sm">{formatCurrency(item.unitPrice * item.quantity)}</p>
+                      <p className="font-bold text-sm">{formatCurrency((item.unitPrice * 1.2) * item.quantity)}</p>
                     </div>
                     <Button 
                       variant="outline" 
@@ -255,8 +258,8 @@ export default function SepetPage() {
           <Card className="bg-gray-50">
             <CardContent className="p-4">
               <div className="flex items-center justify-between mb-4">
-                <span className="text-gray-600">Toplam</span>
-                <span className="text-xl font-bold">{formatCurrency(total)}</span>
+                <span className="text-gray-600 font-medium">Toplam (KDV Dahil)</span>
+                <span className="text-xl font-bold text-blue-600">{formatCurrency(total * 1.2)}</span>
               </div>
               <Button onClick={handleOrder} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-5">
                 <ShoppingBasket className="h-4 w-4 mr-2" />
@@ -295,15 +298,15 @@ export default function SepetPage() {
                 <div key={item.productId} className="p-3 flex justify-between text-sm">
                   <div>
                     <p className="font-medium">{item.name}</p>
-                    <p className="text-xs text-gray-500">{item.quantity} adet × {formatCurrency(item.unitPrice)}</p>
+                    <p className="text-xs text-gray-500">{item.quantity} adet × {formatCurrency(item.unitPrice * 1.2)}</p>
                   </div>
-                  <p className="font-semibold">{formatCurrency(item.unitPrice * item.quantity)}</p>
+                  <p className="font-semibold">{formatCurrency((item.unitPrice * 1.2) * item.quantity)}</p>
                 </div>
               ))}
             </div>
             <div className="flex justify-between font-bold text-base border-t pt-2">
-              <span>Toplam</span>
-              <span>{formatCurrency(total)}</span>
+              <span>Toplam (KDV Dahil)</span>
+              <span>{formatCurrency(total * 1.2)}</span>
             </div>
             <div className="space-y-2">
               <label className="text-xs font-medium text-gray-600">Ödeme Yöntemi</label>
