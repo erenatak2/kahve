@@ -337,11 +337,7 @@ export default function MusterilerPage() {
                       <div>
                         <p className="font-medium flex items-center gap-1.5">
                           {c.user?.name}
-                          {c.salesRep ? (
-                            <span className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded-full border border-slate-200" title={`Sorumlu: ${c.salesRep.name}`}>
-                              {c.salesRep.name}
-                            </span>
-                          ) : (session?.user as any)?.role === 'ADMIN' ? (
+                          {!c.salesRep && (session?.user as any)?.role === 'ADMIN' ? (
                             <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
                               <select 
                                 className="text-[10px] h-6 rounded border border-orange-300 bg-orange-50 px-1 focus:ring-1 focus:ring-orange-500 font-semibold text-orange-700"
