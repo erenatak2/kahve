@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useToast } from '@/components/ui/use-toast'
 import { useSession } from 'next-auth/react'
-import { Plus, ShoppingCart, Search, ChevronDown, ChevronUp, RefreshCw, CreditCard, Printer, Package, FileSpreadsheet, UserCheck, Users2 } from 'lucide-react'
+import { Plus, ShoppingCart, Search, ChevronDown, ChevronUp, RefreshCw, CreditCard, Printer, Package, FileSpreadsheet, UserCheck, Users2, CalendarClock } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { formatCurrency, formatDate, ORDER_STATUS, ORDER_STATUS_COLOR, PAYMENT_METHOD, PAYMENT_STATUS_COLOR } from '@/lib/utils'
 import { Switch } from '@/components/ui/switch'
@@ -31,6 +31,7 @@ export default function SiparislerPage() {
   const [editNotes, setEditNotes] = useState<{ id: string; value: string } | null>(null)
   const [editDate, setEditDate] = useState<{ id: string; value: string } | null>(null)
   const [confirmDialog, setConfirmDialog] = useState<{ orderId: string; status: string; orderNumber?: string; reminderAt?: string; reminderNote?: string } | null>(null)
+  const [reminderEdit, setReminderEdit] = useState<{ id: string, date: string, note: string } | null>(null)
   const [kargoDialog, setKargoDialog] = useState<{ orderId: string; cargoCompany: string; trackingNumber: string } | null>(null)
   const { toast } = useToast()
 
@@ -145,6 +146,38 @@ export default function SiparislerPage() {
     })
     setEditNotes(null)
     fetchAll()
+  }
+
+  const saveDate = async (orderId: string, dateValue: string) => {
+    await fetch(`/api/siparisler/${orderId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ orderDate: new Date(dateValue).toISOString() }),
+    })
+    setEditDate(null)
+    fetchAll()
+  }
+
+  const handleUpdateReminder = async (id: string, date: string, note: string) => {
+    try {
+      const res = await fetch(`/api/siparisler/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reminderAt: date ? new Date(date).toISOString() : null, reminderNote: note })
+      })
+      if (res.ok) {
+        toast({ title: 'Başarılı', description: 'Hatırlatıcı güncellendi.' })
+        setReminderEdit(null)
+        fetchAll()
+      }
+    } catch (error) {
+      toast({ title: 'Hata', description: 'Güncelleme yapılamadı.', variant: 'destructive' })
+    }
+  }
+
+  const formatInitialDate = (date: any) => {
+    if (!date) return ''
+    return new Date(date).toISOString().split('T')[0]
   }
 
   const saveDate = async (orderId: string, dateValue: string) => {
@@ -447,6 +480,20 @@ export default function SiparislerPage() {
                         </span>
                       </div>
                       <div className="flex gap-0.5">
+                        {o.status === 'TESLIM_EDILDI' && (
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            title="Takip Ayarları" 
+                            className={cn(o.reminderAt ? "text-orange-600 bg-orange-50" : "text-gray-400")}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setExpanded(isExpanded ? null : o.id)
+                            }}
+                          >
+                            <CalendarClock className="h-4 w-4" />
+                          </Button>
+                        )}
                         <Button variant="ghost" size="sm" title="Ürün Listesi Yazdır" onClick={() => { const w = window.open('', '_blank'); if (!w) return; const items = o.orderItems?.map((i: any) => `<tr><td style='padding:4px 8px;border-bottom:1px solid #eee'>${i.product?.code || ''}</td><td style='padding:4px 8px;border-bottom:1px solid #eee'>${i.product?.name}</td><td style='padding:4px 8px;border-bottom:1px solid #eee;text-align:center'>${i.quantity}</td><td style='padding:4px 8px;border-bottom:1px solid #eee;text-align:right'>${i.unitPrice.toLocaleString('tr-TR')} ₺</td><td style='padding:4px 8px;border-bottom:1px solid #eee;text-align:right'>${(i.quantity * i.unitPrice).toLocaleString('tr-TR')} ₺</td></tr>`).join('') || ''; w.document.write(`<!DOCTYPE html><html><head><meta charset='utf-8'><title>Ürün Listesi</title><style>body{font-family:Arial,sans-serif;padding:20px;max-width:600px;margin:0 auto}h2{text-align:center;border-bottom:2px solid #333;padding-bottom:8px}table{width:100%;border-collapse:collapse;margin-top:12px}th{background:#f0f0f0;padding:6px 8px;text-align:left;font-size:13px}td{font-size:12px}.info{background:#f9f9f9;padding:12px;border-radius:6px;margin:12px 0}.label{color:#666;font-size:11px}.value{font-weight:bold;font-size:14px}@media print{button{display:none}}</style></head><body><h2>ÜRÜN LİSTESİ</h2><div class='info'><div class='label'>Sipariş No</div><div class='value'>${o.orderNumber || o.id.slice(-8).toUpperCase()}</div><div class='label' style='margin-top:8px'>Müşteri</div><div class='value'>${o.customer?.user?.name || ''}</div><div class='label' style='margin-top:8px'>Tarih</div><div class='value'>${new Date(o.createdAt).toLocaleDateString('tr-TR')}</div></div><table><thead><tr><th>Kod</th><th>Ürün</th><th>Adet</th><th>Birim Fiyat</th><th>Toplam</th></tr></thead><tbody>${items}</tbody></table><div style='text-align:right;margin-top:12px;font-weight:bold'>Genel Toplam: ${o.totalAmount.toLocaleString('tr-TR', {style:'currency',currency:'TRY'})}</div><br><button onclick='window.print()' style='width:100%;padding:12px;background:#333;color:#fff;border:none;border-radius:6px;font-size:14px;cursor:pointer'>🖨️ Yazdır</button></body></html>`); w.document.close(); }}><Printer className="h-3 w-3 text-blue-600" /></Button>
                         <Button variant="ghost" size="sm" title="Koli Etiketi" onClick={() => { const w = window.open('', '_blank'); if (!w) return; const c = o.customer; w.document.write(`<!DOCTYPE html><html><head><meta charset='utf-8'><title>Koli Etiketi</title><style>body{font-family:Arial,sans-serif;padding:20px;max-width:400px;margin:0 auto}h2{text-align:center;border-bottom:2px solid #333;padding-bottom:8px}.info{background:#f9f9f9;padding:12px;border-radius:6px;margin:12px 0}.label{color:#666;font-size:11px}.value{font-weight:bold;font-size:14px}@media print{button{display:none}}</style></head><body><h2>KOLİ ETİKETİ</h2><div class='info'><div class='label'>Sipariş No</div><div class='value'>${o.orderNumber || o.id.slice(-8).toUpperCase()}</div><div class='label' style='margin-top:8px'>Tarih</div><div class='value'>${new Date(o.orderDate || o.createdAt).toLocaleDateString('tr-TR')}</div></div><div class='info'><div class='label'>Alıcı</div><div class='value'>${c?.user?.name || ''}</div><div class='label' style='margin-top:6px'>Telefon</div><div class='value'>${c?.phone || '-'}</div><div class='label' style='margin-top:6px'>TESLİMAT ADRESİ</div><div class='value' style='text-transform:uppercase;font-weight:bold'>${(o.shippingAddress || '-').toUpperCase()}${c?.city ? ', ' + c.city.toUpperCase() : ''}</div></div><div style='text-align:right;margin-top:12px;font-weight:bold'>Toplam: ${o.totalAmount.toLocaleString('tr-TR', {style:'currency',currency:'TRY'})}</div><br><button onclick='window.print()' style='width:100%;padding:12px;background:#333;color:#fff;border:none;border-radius:6px;font-size:14px;cursor:pointer'>🖨️ Yazdır</button></body></html>`); w.document.close(); }}><Package className="h-3 w-3 text-orange-600" /></Button>
                         <Button variant="ghost" size="sm" onClick={() => setExpanded(isExpanded ? null : o.id)}>{isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}</Button>
@@ -471,6 +518,83 @@ export default function SiparislerPage() {
                           </div>
                         ))}
                       </div>
+
+                      {o.status === 'TESLIM_EDILDI' && (
+                        <div className="bg-orange-50 border border-orange-100 rounded-lg p-3 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <p className="text-xs font-bold text-orange-700 uppercase flex items-center gap-1.5">
+                              <CalendarClock className="h-3.5 w-3.5" />
+                              Müşteri Takip & Aranacaklar
+                            </p>
+                            {!reminderEdit || reminderEdit.id !== o.id ? (
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="h-6 px-2 text-[10px] text-orange-700 hover:bg-orange-100"
+                                onClick={() => setReminderEdit({ 
+                                  id: o.id, 
+                                  date: formatInitialDate(o.reminderAt), 
+                                  note: o.reminderNote || '' 
+                                })}
+                              >
+                                {o.reminderAt ? 'Düzenle' : 'Takip Ekle'}
+                              </Button>
+                            ) : (
+                              <div className="flex gap-1">
+                                <Button 
+                                  size="sm" 
+                                  className="h-6 px-2 text-[10px] bg-orange-600 hover:bg-orange-700 text-white"
+                                  onClick={() => handleUpdateReminder(o.id, reminderEdit.date, reminderEdit.note)}
+                                >
+                                  Kaydet
+                                </Button>
+                                <Button 
+                                  size="sm" 
+                                  variant="ghost"
+                                  className="h-6 px-2 text-[10px] text-gray-500"
+                                  onClick={() => setReminderEdit(null)}
+                                >
+                                  İptal
+                                </Button>
+                              </div>
+                            )}
+                          </div>
+                          
+                          {(!reminderEdit || reminderEdit.id !== o.id) ? (
+                            <div className="grid grid-cols-2 gap-4">
+                              <div>
+                                <p className="text-[10px] text-orange-600 mb-0.5">Hatırlatma Tarihi</p>
+                                <p className="text-sm font-medium">{o.reminderAt ? formatDate(o.reminderAt) : 'Ayarlanmadı'}</p>
+                              </div>
+                              <div>
+                                <p className="text-[10px] text-orange-600 mb-0.5">Takip Notu</p>
+                                <p className="text-sm font-medium italic">"{o.reminderNote || 'Not yok'}"</p>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="grid grid-cols-2 gap-3">
+                              <div className="space-y-1">
+                                <Label className="text-[10px] text-orange-700">Yeni Tarih</Label>
+                                <Input 
+                                  type="date" 
+                                  className="h-8 text-xs bg-white border-orange-200 focus:ring-orange-500" 
+                                  value={reminderEdit.date} 
+                                  onChange={e => setReminderEdit({...reminderEdit, date: e.target.value})}
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <Label className="text-[10px] text-orange-700">Takip Notu</Label>
+                                <Input 
+                                  placeholder="Örn: Memnuniyet sor" 
+                                  className="h-8 text-xs bg-white border-orange-200 focus:ring-orange-500"
+                                  value={reminderEdit.note}
+                                  onChange={e => setReminderEdit({...reminderEdit, note: e.target.value})}
+                                />
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
                       {(o.billingAddress || o.shippingAddress || o.paymentMethod) && (
                         <div className="bg-gray-50 rounded-lg p-3 space-y-1.5">
                           <p className="text-xs font-semibold text-gray-500 mb-2">SİPARİŞ BİLGİLERİ</p>
