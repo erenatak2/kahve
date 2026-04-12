@@ -27,14 +27,14 @@ export default function MusterilerPage() {
   const [showPriceDialog, setShowPriceDialog] = useState(false)
   const [showPasswordDialog, setShowPasswordDialog] = useState(false)
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null)
-  const [form, setForm] = useState({ name: '', email: '', password: '', phone: '', address: '', shippingAddress: '', city: 'İstanbul', taxNumber: '', discountRate: '0', notes: '', salesRepId: '' })
+  const [form, setForm] = useState({ name: '', email: '', password: '', phone: '', address: '', shippingAddress: '', city: 'İstanbul', taxNumber: '', taxOffice: '', businessName: '', discountRate: '0', notes: '', salesRepId: '' })
   const [draftPrices, setDraftPrices] = useState<Record<string, string>>({})
   const [draftDiscounts, setDraftDiscounts] = useState<Record<string, string>>({})
   const [priceSearch, setPriceSearch] = useState('')
   const [passwordValue, setPasswordValue] = useState('')
   const [sameAddress, setSameAddress] = useState(false)
   const [editSameAddress, setEditSameAddress] = useState(false)
-  const [editForm, setEditForm] = useState({ name: '', phone: '', address: '', shippingAddress: '', city: '', taxNumber: '', discountRate: '0', notes: '', salesRepId: '' })
+  const [editForm, setEditForm] = useState({ name: '', phone: '', address: '', shippingAddress: '', city: '', taxNumber: '', taxOffice: '', businessName: '', discountRate: '0', notes: '', salesRepId: '' })
   const [deleteConfirm, setDeleteConfirm] = useState<{ customerId: string; name: string } | null>(null)
   const [exportDialog, setExportDialog] = useState<{ customerId: string; name: string } | null>(null)
   const [exportRange, setExportRange] = useState({ startDate: '', endDate: '' })
@@ -69,7 +69,7 @@ export default function MusterilerPage() {
     if (res.ok) {
       toast({ title: 'Müşteri eklendi' })
       setShowAddDialog(false)
-      setForm({ name: '', email: '', password: '', phone: '', address: '', shippingAddress: '', city: 'İstanbul', taxNumber: '', discountRate: '0', notes: '', salesRepId: '' })
+      setForm({ name: '', email: '', password: '', phone: '', address: '', shippingAddress: '', city: 'İstanbul', taxNumber: '', taxOffice: '', businessName: '', discountRate: '0', notes: '', salesRepId: '' })
       fetchAll()
     } else {
       const err = await res.json().catch(() => ({}))
@@ -97,6 +97,8 @@ export default function MusterilerPage() {
       shippingAddress: c.shippingAddress || '',
       city: c.city || '',
       taxNumber: c.taxNumber || '',
+      taxOffice: c.taxOffice || '',
+      businessName: c.businessName || '',
       discountRate: c.discountRate?.toString() || '0',
       notes: c.notes || '',
       salesRepId: c.salesRepId || '',
@@ -345,7 +347,8 @@ export default function MusterilerPage() {
                     <TableCell>
                       <div>
                         <p className="font-medium flex items-center gap-1.5 line-clamp-1">
-                          {c.user?.name}
+                          {c.businessName || c.user?.name}
+                          {c.businessName && <span className="text-[10px] text-gray-400 font-normal">({c.user?.name})</span>}
                           {!c.salesRep && (session?.user as any)?.role === 'ADMIN' && (
                             <div className="flex items-center gap-1 ml-2" onClick={e => e.stopPropagation()}>
                               <select 
@@ -435,12 +438,16 @@ export default function MusterilerPage() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Ad Soyad *</Label>
-                <Input value={form.name} onChange={e => setForm({...form, name: e.target.value})} required />
+                <Label>İşletme / Ticari Ünvan</Label>
+                <Input value={form.businessName} onChange={e => setForm({...form, businessName: e.target.value})} placeholder="Örn: Meridyen Kahve Ltd. Şti." />
+              </div>
+              <div className="space-y-2">
+                <Label>Yetkili Adı *</Label>
+                <Input value={form.name} onChange={e => setForm({...form, name: e.target.value})} required placeholder="Örn: Ahmet Yılmaz" />
               </div>
               <div className="space-y-2">
                 <Label>E-posta *</Label>
-                <Input type="email" value={form.email} onChange={e => setForm({...form, email: e.target.value})} required />
+                <Input type="email" value={form.email} onChange={e => setForm({...form, email: e.target.value})} required placeholder="ornek@mail.com" />
               </div>
               <div className="space-y-2">
                 <Label>Şifre</Label>
@@ -580,6 +587,10 @@ export default function MusterilerPage() {
                 </select>
               </div>
               <div className="space-y-2">
+                <Label>Vergi Dairesi</Label>
+                <Input value={form.taxOffice} onChange={e => setForm({...form, taxOffice: e.target.value})} placeholder="Örn: Marmara Kurumlar" />
+              </div>
+              <div className="space-y-2">
                 <Label>TC Kimlik No / Vergi No</Label>
                 <Input
                   placeholder="10 veya 11 haneli numara"
@@ -655,7 +666,11 @@ export default function MusterilerPage() {
           <form onSubmit={handleUpdateCustomer} className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Ad Soyad</Label>
+                <Label>İşletme / Ticari Ünvan</Label>
+                <Input value={editForm.businessName} onChange={e => setEditForm({...editForm, businessName: e.target.value})} />
+              </div>
+              <div className="space-y-2">
+                <Label>Yetkili Adı</Label>
                 <Input value={editForm.name} onChange={e => setEditForm({...editForm, name: e.target.value})} />
               </div>
               <div className="space-y-2">
@@ -793,6 +808,10 @@ export default function MusterilerPage() {
                   <option value="Osmaniye">Osmaniye</option>
                   <option value="Düzce">Düzce</option>
                 </select>
+              </div>
+              <div className="space-y-2">
+                <Label>Vergi Dairesi</Label>
+                <Input value={editForm.taxOffice} onChange={e => setEditForm({...editForm, taxOffice: e.target.value})} />
               </div>
               <div className="space-y-2">
                 <Label>TC Kimlik No / Vergi No</Label>

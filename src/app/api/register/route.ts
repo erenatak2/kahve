@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma'
 import bcrypt from 'bcryptjs'
 
 export async function POST(req: NextRequest) {
-  const { name, email, password, phone, address, shippingAddress, city, taxNumber } = await req.json()
+  const { name, email, password, phone, address, shippingAddress, city, taxNumber, taxOffice, businessName } = await req.json()
 
   if (!name || !email || !password) {
     return NextResponse.json({ error: 'Ad, e-posta ve şifre zorunludur' }, { status: 400 })
@@ -29,6 +29,8 @@ export async function POST(req: NextRequest) {
           shippingAddress: shippingAddress || null,
           city: city || null,
           taxNumber: taxNumber || null,
+          taxOffice: taxOffice || null,
+          businessName: businessName || null,
         },
       },
     },

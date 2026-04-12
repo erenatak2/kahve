@@ -57,6 +57,8 @@ model Customer {
   shippingAddress String?  // Teslimat adresi
   city            String?
   taxNumber       String?
+  taxOffice       String?
+  businessName    String?
   discountRate    Float    @default(0)
   salesRepId      String?  // Satış Temsilcisi (Plasiyer) bağlantısı
   notes           String?

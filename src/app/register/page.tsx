@@ -12,7 +12,7 @@ import { ShoppingBag, Loader2 } from 'lucide-react'
 import Link from 'next/link'
 
 export default function RegisterPage() {
-  const [form, setForm] = useState({ name: '', email: '', password: '', phone: '', address: '', shippingAddress: '', city: '', taxNumber: '' })
+  const [form, setForm] = useState({ name: '', email: '', password: '', phone: '', address: '', shippingAddress: '', city: '', taxNumber: '', taxOffice: '', businessName: '' })
   const [sameAddress, setSameAddress] = useState(true)
   const [loading, setLoading] = useState(false)
   const router = useRouter()
@@ -73,7 +73,11 @@ export default function RegisterPage() {
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-3">
               <div className="space-y-1.5">
-                <Label>Ad Soyad *</Label>
+                <Label>İşletme / Ticari Ünvan</Label>
+                <Input placeholder="Örn: Atak Meridyen Ltd. Şti." value={form.businessName} onChange={set('businessName')} disabled={loading} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Yetkili Adı *</Label>
                 <Input placeholder="Adınız Soyadınız" value={form.name} onChange={set('name')} required disabled={loading} />
               </div>
               <div className="space-y-1.5">
@@ -84,19 +88,25 @@ export default function RegisterPage() {
                 <Label>Şifre *</Label>
                 <Input type="password" placeholder="En az 4 karakter" value={form.password} onChange={set('password')} required minLength={4} disabled={loading} />
               </div>
-              <div className="border-t pt-3 space-y-1.5">
-                <Label>TC Kimlik No / Vergi No</Label>
-                <Input
-                  placeholder="10 veya 11 haneli numara"
-                  value={form.taxNumber}
-                  onChange={e => {
-                    const v = e.target.value.replace(/\D/g, '').slice(0, 11)
-                    setForm(prev => ({ ...prev, taxNumber: v }))
-                  }}
-                  disabled={loading}
-                />
-                <p className="text-xs text-gray-400">Fatura kesmek için gereklidir. Vergi No: 10 hane, TC Kimlik: 11 hane</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 border-t pt-3">
+                <div className="space-y-1.5">
+                  <Label>Vergi Dairesi</Label>
+                  <Input placeholder="Örn: Marmara Kurumlar" value={form.taxOffice} onChange={set('taxOffice')} disabled={loading} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>TC / Vergi No</Label>
+                  <Input
+                    placeholder="10 veya 11 haneli"
+                    value={form.taxNumber}
+                    onChange={e => {
+                      const v = e.target.value.replace(/\D/g, '').slice(0, 11)
+                      setForm(prev => ({ ...prev, taxNumber: v }))
+                    }}
+                    disabled={loading}
+                  />
+                </div>
               </div>
+              <p className="text-[10px] text-gray-400">Vergi No: 10 hane, TC Kimlik: 11 hane</p>
               <div className="space-y-1.5">
                 <Label>Telefon *</Label>
                 <div className="flex gap-2">
