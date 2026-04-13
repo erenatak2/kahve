@@ -66,6 +66,11 @@ model Customer {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
+  // Takip ve Hatırlatıcılar
+  nextCallDate    DateTime? // Bir sonraki arama tarihi
+  followUpNote    String?   // Takip notu
+  followUpStatus  String    @default("BEKLIYOR") // BEKLIYOR, ARANDI
+
   user                 User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
   salesRep             User?                 @relation("SalesRepToCustomer", fields: [salesRepId], references: [id])
   orders               Order[]

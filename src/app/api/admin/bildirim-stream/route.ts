@@ -25,7 +25,12 @@ export async function GET(request: NextRequest) {
             prisma.order.count({ where: { status: 'HAZIRLANIYOR' } }),
             prisma.paymentNotification.count({ where: { status: 'BEKLIYOR' } }),
             prisma.customer.count(),
-            prisma.order.count({ where: { followupStatus: 'BEKLIYOR', reminderAt: { not: null } } })
+            prisma.customer.count({ 
+              where: { 
+                followUpStatus: 'BEKLIYOR', 
+                nextCallDate: { lte: new Date() } 
+              } 
+            })
           ])
           
           const data = JSON.stringify({ 

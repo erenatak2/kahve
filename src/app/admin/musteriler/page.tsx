@@ -146,15 +146,15 @@ export default function MusterilerPage() {
     else toast({ title: 'Hata', variant: 'destructive' })
   }
 
-  const handleQuickAssign = async (customerId: string, salesRepId: string) => {
-    if (!salesRepId) return
-    const res = await fetch(`/api/musteriler/${customerId}`, {
-      method: 'PUT',
+  const handleQuickFollowUp = async (customerId: string, days: string) => {
+    if (!days || isNaN(parseInt(days))) return toast({ title: 'Geçerli bir gün girin', variant: 'destructive' });
+    const res = await fetch('/api/musteriler/takip', {
+      method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ salesRepId }),
+      body: JSON.stringify({ customerId, days }),
     })
     if (res.ok) {
-      toast({ title: 'Müşteri atandı' })
+      toast({ title: 'Takip eklendi', description: `${days} gün sonrasına hatılartma kuruldu.` })
       fetchAll()
     } else {
       toast({ title: 'Hata', variant: 'destructive' })
@@ -333,6 +333,7 @@ export default function MusterilerPage() {
                 <TableHead className="hidden lg:table-cell text-right">Sipariş</TableHead>
                 <TableHead className="hidden lg:table-cell text-right">Ciro</TableHead>
                 <TableHead className="hidden lg:table-cell text-right">Borç</TableHead>
+                <TableHead className="text-right">Takip Ayarla</TableHead>
                 <TableHead className="text-right">Genel İndirim</TableHead>
                 <TableHead className="text-right">İşlemler</TableHead>
               </TableRow>
@@ -398,6 +399,33 @@ export default function MusterilerPage() {
                       ) : (
                         <span className="text-gray-400">-</span>
                       )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
+                        <Input 
+                          type="number" 
+                          placeholder="Gün" 
+                          className="w-16 h-8 text-xs text-center px-1" 
+                          onKeyPress={(e) => {
+                            if (e.key === 'Enter') {
+                              handleQuickFollowUp(c.id, (e.target as any).value)
+                              ;(e.target as any).value = ''
+                            }
+                          }}
+                        />
+                        <Button 
+                          size="sm" 
+                          variant="ghost" 
+                          className="h-8 w-8 p-0 text-blue-600 hover:bg-blue-50"
+                          onClick={(e) => {
+                            const input = e.currentTarget.previousElementSibling as HTMLInputElement
+                            handleQuickFollowUp(c.id, input.value)
+                            input.value = ''
+                          }}
+                        >
+                          <Phone className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </TableCell>
                     <TableCell className="text-right">
                       <span className="text-sm font-medium text-blue-600">%{c.discountRate}</span>
@@ -659,7 +687,7 @@ export default function MusterilerPage() {
 
       {/* Edit Customer Dialog */}
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Müşteri Düzenle - {selectedCustomer?.user?.name}</DialogTitle>
           </DialogHeader>
