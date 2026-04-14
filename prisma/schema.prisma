@@ -80,6 +80,7 @@ model Customer {
   orders               Order[]
   customerPrices       CustomerPrice[]
   paymentNotifications PaymentNotification[]
+  contacts             Contact[]
 }
 
 model Product {
@@ -210,4 +211,21 @@ model CallLog {
   outcome    String   @default("GORUSTUK") // GORUSTUK, ULASAMADIK, MESAJ_BIRAKTIK
 
   customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+}
+
+model Contact {
+  id          String   @id @default(cuid())
+  name        String
+  title       String?  // Unvan (Satin alma, Sube muduru vb)
+  phone       String?
+  email       String?
+  notes       String?  // "Nereden taniyorum, niye arayacagim" gibi notlar
+  customerId  String?  // Bagli oldugu firma
+  isActive    Boolean  @default(true)
+  
+  reminderAt  DateTime? // Hatirlatici tarihi
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  customer    Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
 }

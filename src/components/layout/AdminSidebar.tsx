@@ -37,6 +37,7 @@ const navItems: NavItem[] = [
   { href: '/admin', label: 'Gösterge Paneli', icon: LayoutDashboard },
   { href: '/admin/urunler', label: 'Ürünler', icon: Package },
   { href: '/admin/musteriler', label: 'Müşteriler', icon: Users, badgeKey: 'customers' },
+  { href: '/admin/kontaklar', label: 'Kontaklar', icon: Phone },
   { href: '/admin/siparisler', label: 'Siparişler', icon: ShoppingCart, badgeKey: 'orders' },
   { href: '/admin/tahsilat', label: 'Tahsilat', icon: CreditCard },
   { href: '/admin/takip', label: 'Aranacaklar', icon: Phone, badgeKey: 'reminders' },
@@ -261,7 +262,7 @@ export function AdminSidebar({ user, onClose }: { user: { name?: string; email?:
       <nav className="flex-1 p-4 space-y-1">
         {navItems.filter(item => {
           if (user?.role === 'SATICI') {
-            return ['/admin', '/admin/urunler', '/admin/musteriler', '/admin/siparisler', '/admin/profil'].includes(item.href)
+            return ['/admin', '/admin/urunler', '/admin/musteriler', '/admin/kontaklar', '/admin/siparisler', '/admin/profil'].includes(item.href)
           }
           return true
         }).map((item) => {
