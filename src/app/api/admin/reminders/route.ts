@@ -58,7 +58,9 @@ export async function GET(req: NextRequest) {
     date: c.nextCallDate
   }))
 
-  return NextResponse.json([...formattedOrders, ...formattedCustomers].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()))
+  const combined = [...formattedOrders, ...formattedCustomers]
+  combined.sort((a, b) => new Date(a.date ?? 0).getTime() - new Date(b.date ?? 0).getTime())
+  return NextResponse.json(combined)
 }
 
 export async function PUT(req: NextRequest) {

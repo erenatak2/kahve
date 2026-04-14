@@ -41,12 +41,31 @@ export async function GET() {
       where: { salesRepId: member.id, isActive: true }
     })
 
+    // Bu ayki arama istatistikleri
+    const thisMonthStart = new Date()
+    thisMonthStart.setDate(1)
+    thisMonthStart.setHours(0, 0, 0, 0)
+
+    const callLogs = await prisma.callLog.findMany({
+      where: {
+        calledBy: member.id,
+        calledAt: { gte: thisMonthStart }
+      },
+      select: { outcome: true }
+    })
+
+    const callCount = callLogs.length
+    const successCount = callLogs.filter(l => l.outcome === 'GORUSTUK').length
+    const successRate = callCount > 0 ? Math.round((successCount / callCount) * 100) : 0
+
     return {
       ...member,
       stats: {
         totalSales: orderStats._sum.totalAmount || 0,
         orderCount: orderStats._count.id || 0,
-        customerCount: customerCount
+        customerCount: customerCount,
+        callCount,
+        successRate
       }
     }
   }))

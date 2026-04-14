@@ -4,17 +4,36 @@ import { useEffect, useState } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
-import { Phone, Check, Search } from 'lucide-react'
+import { Phone, Check, Search, MessageCircle, AlertCircle, X, Save } from 'lucide-react'
 import { cn, formatDate } from '@/lib/utils'
 import { useToast } from '@/components/ui/use-toast'
 import { Input } from '@/components/ui/input'
-import { Calendar as CalendarIcon, Save } from 'lucide-react'
+
+const WHATSAPP_TEMPLATES = [
+  { label: 'Genel Hatırlatma', text: (name: string) => `Merhaba ${name}, sizi aramıştım. Müsait olduğunuzda dönebilir misiniz?` },
+  { label: 'Sipariş Bilgisi', text: (name: string) => `Merhaba ${name}, kahve siparişiniz için bilgi almak istedim.` },
+  { label: 'Takip Araması', text: (name: string) => `Merhaba ${name}, geçen görüşmemizde söz vermiştiniz, hatırlatmak istedim.` },
+]
+
+const OUTCOMES = [
+  { value: 'GORUSTUK', label: '✅ Görüştük', color: 'bg-green-100 text-green-700 border-green-200 hover:bg-green-200' },
+  { value: 'ULASAMADIK', label: '📵 Ulaşamadık', color: 'bg-red-100 text-red-700 border-red-200 hover:bg-red-200' },
+  { value: 'MESAJ_BIRAKTIK', label: '💬 Mesaj Bıraktık', color: 'bg-yellow-100 text-yellow-700 border-yellow-200 hover:bg-yellow-200' },
+]
 
 export default function TakipPage() {
   const [reminders, setReminders] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [editingDates, setEditingDates] = useState<Record<string, string>>({})
+  const [whatsappMenu, setWhatsappMenu] = useState<string | null>(null)
+  
+  // Arama Notu Modalı
+  const [callModal, setCallModal] = useState<{ item: any } | null>(null)
+  const [callNote, setCallNote] = useState('')
+  const [callOutcome, setCallOutcome] = useState('GORUSTUK')
+  const [saving, setSaving] = useState(false)
+
   const { toast } = useToast()
   const now = new Date()
 
@@ -34,27 +53,41 @@ export default function TakipPage() {
 
   useEffect(() => {
     fetchReminders()
-    
-    // Refresh interval
     const interval = setInterval(fetchReminders, 30000)
     return () => clearInterval(interval)
   }, [])
 
-  const markAsDone = async (id: string, type: 'CUSTOMER' | 'ORDER') => {
-    try {
-      const res = await fetch(`/api/admin/reminders`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, type, status: 'ARANDI' })
-      })
+  const openCallModal = (item: any) => {
+    setCallModal({ item })
+    setCallNote('')
+    setCallOutcome('GORUSTUK')
+  }
 
+  const saveCallLog = async () => {
+    if (!callModal) return
+    setSaving(true)
+    try {
+      const r = callModal.item
+      const res = await fetch('/api/admin/call-log', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customerId: r.customerId,
+          note: callNote,
+          outcome: callOutcome,
+          type: r.type,
+          relatedId: r.type === 'ORDER' ? r.id : undefined
+        })
+      })
       if (res.ok) {
-        toast({ title: 'Başarılı', description: 'Takip tamamlandı.' })
+        toast({ title: '✅ Arama kaydedildi', description: 'Konuşma geçmişe eklendi.' })
+        setCallModal(null)
         fetchReminders()
       }
-    } catch (error) {
-      toast({ title: 'Hata', description: 'Güncelleme yapılamadı.', variant: 'destructive' })
+    } catch {
+      toast({ title: 'Hata', variant: 'destructive' })
     }
+    setSaving(false)
   }
 
   const updateDate = async (customerId: string, newDate: string) => {
@@ -63,10 +96,7 @@ export default function TakipPage() {
       const res = await fetch('/api/admin/takip', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          customerId, 
-          days: Math.ceil((new Date(newDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
-        })
+        body: JSON.stringify({ customerId, date: newDate })
       })
       if (res.ok) {
         toast({ title: 'Tarih güncellendi' })
@@ -82,7 +112,15 @@ export default function TakipPage() {
     }
   }
 
-  const filtered = reminders.filter((r: any) => 
+  const openWhatsApp = (phone: string, name: string, template: (n: string) => string) => {
+    const cleanPhone = phone.replace(/\D/g, '')
+    const fullPhone = cleanPhone.startsWith('0') ? '90' + cleanPhone.slice(1) : cleanPhone.startsWith('90') ? cleanPhone : '90' + cleanPhone
+    const text = encodeURIComponent(template(name.split(' ')[0]))
+    window.open(`https://wa.me/${fullPhone}?text=${text}`, '_blank')
+    setWhatsappMenu(null)
+  }
+
+  const filtered = reminders.filter((r: any) =>
     r.customerName?.toLowerCase().includes(search.toLowerCase()) ||
     r.note?.toLowerCase().includes(search.toLowerCase())
   )
@@ -100,15 +138,9 @@ export default function TakipPage() {
           <h1 className="text-xl md:text-2xl font-bold text-gray-900 tracking-tight">Aranacaklar</h1>
           <p className="text-gray-500 text-sm">Takip süresi gelen müşterilerin listesi</p>
         </div>
-        
         <div className="relative w-full md:w-72">
           <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-          <Input 
-            className="pl-9 bg-white" 
-            placeholder="Müşteri veya not ara..." 
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-          />
+          <Input className="pl-9 bg-white" placeholder="Müşteri veya not ara..." value={search} onChange={e => setSearch(e.target.value)} />
         </div>
       </div>
 
@@ -118,8 +150,9 @@ export default function TakipPage() {
         </div>
       ) : filtered.length === 0 ? (
         <Card>
-          <CardContent className="py-16 text-center text-gray-500 text-sm italic">
-            Aranması gereken müsait kayıt bulunamadı
+          <CardContent className="py-16 text-center space-y-2">
+            <Check className="h-10 w-10 text-green-400 mx-auto" />
+            <p className="text-gray-500 text-sm font-medium">Harika! Bekleyen arama kaydı bulunamadı.</p>
           </CardContent>
         </Card>
       ) : (
@@ -166,16 +199,16 @@ export default function TakipPage() {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex flex-col items-end gap-1.5">
-                      <div className="flex items-center gap-1 group">
-                        <Input 
+                      <div className="flex items-center gap-1">
+                        <Input
                           type="date"
                           className="h-8 w-32 text-xs p-1 bg-white border-gray-200"
                           value={editingDates[r.customerId] || new Date(r.date).toISOString().split('T')[0]}
                           onChange={e => setEditingDates(prev => ({ ...prev, [r.customerId]: e.target.value }))}
                         />
                         {editingDates[r.customerId] && (
-                          <Button 
-                            size="sm" 
+                          <Button
+                            size="sm"
                             className="h-8 w-8 p-0 bg-blue-600 hover:bg-blue-700 shadow-sm"
                             onClick={() => updateDate(r.customerId, editingDates[r.customerId])}
                           >
@@ -190,26 +223,55 @@ export default function TakipPage() {
                         )}>
                           {isToday(r.date) ? 'BUGÜN' : formatDate(r.date)}
                         </span>
-                        {isLate(r.date) && <span className="text-[9px] text-red-500 font-bold uppercase animate-pulse">Gecikti!</span>}
+                        {isLate(r.date) && (
+                          <span className="flex items-center gap-0.5 text-[9px] text-red-500 font-bold uppercase animate-pulse">
+                            <AlertCircle className="h-2.5 w-2.5" /> Gecikti
+                          </span>
+                        )}
                       </div>
                     </div>
                   </TableCell>
-                   <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-2">
-                       {r.phone && (
-                        <a
-                          href={`tel:${r.phone}`}
-                          className="h-8 w-8 rounded-md bg-blue-600 text-white flex items-center justify-center hover:bg-blue-700 transition-colors shadow-sm"
-                          title="Ara"
-                        >
-                          <Phone className="h-4 w-4" />
-                        </a>
+                  <TableCell className="text-right">
+                    <div className="flex items-center justify-end gap-1.5 relative">
+                      {r.phone && (
+                        <>
+                          <div className="relative">
+                            <button
+                              onClick={() => setWhatsappMenu(whatsappMenu === r.id ? null : r.id)}
+                              className="h-8 w-8 rounded-md bg-green-500 hover:bg-green-600 text-white flex items-center justify-center transition-colors shadow-sm"
+                              title="WhatsApp"
+                            >
+                              <MessageCircle className="h-4 w-4" />
+                            </button>
+                            {whatsappMenu === r.id && (
+                              <div className="absolute right-0 top-9 z-50 bg-white rounded-xl shadow-xl border border-gray-100 p-2 w-52 space-y-1">
+                                <p className="text-[10px] font-bold text-gray-400 uppercase px-2 pb-1">Şablon Seç</p>
+                                {WHATSAPP_TEMPLATES.map((tpl, i) => (
+                                  <button
+                                    key={i}
+                                    onClick={() => openWhatsApp(r.phone, r.customerName, tpl.text)}
+                                    className="w-full text-left text-xs px-3 py-2 rounded-lg hover:bg-green-50 text-gray-700 hover:text-green-700 transition-colors"
+                                  >
+                                    {tpl.label}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                          <a
+                            href={`tel:${r.phone}`}
+                            className="h-8 w-8 rounded-md bg-blue-600 text-white flex items-center justify-center hover:bg-blue-700 transition-colors shadow-sm"
+                            title="Ara"
+                          >
+                            <Phone className="h-4 w-4" />
+                          </a>
+                        </>
                       )}
                       <Button
                         size="sm"
                         variant="outline"
                         className="h-8 px-3 gap-1.5 border-green-200 text-green-700 hover:bg-green-500 hover:text-white transition-all font-bold"
-                        onClick={() => markAsDone(r.id, r.type)}
+                        onClick={() => openCallModal(r)}
                       >
                         <Check className="h-4 w-4" />
                         <span className="hidden sm:inline text-xs">Arandı</span>
@@ -221,6 +283,71 @@ export default function TakipPage() {
             </TableBody>
           </Table>
         </Card>
+      )}
+
+      {/* ===== ARAMA NOTU MODALI ===== */}
+      {callModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4" onClick={() => setCallModal(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-5" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="font-bold text-gray-900 text-lg">Arama Notu</h2>
+                <p className="text-sm text-gray-500">{callModal.item.customerName}</p>
+              </div>
+              <button onClick={() => setCallModal(null)} className="text-gray-400 hover:text-gray-600 p-1">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-sm font-semibold text-gray-700">Arama Sonucu</p>
+              <div className="grid grid-cols-3 gap-2">
+                {OUTCOMES.map(o => (
+                  <button
+                    key={o.value}
+                    onClick={() => setCallOutcome(o.value)}
+                    className={cn(
+                      "text-xs font-bold py-2.5 px-2 rounded-xl border-2 transition-all text-center",
+                      callOutcome === o.value ? o.color + ' ring-2 ring-offset-1 ring-current' : 'bg-gray-50 text-gray-500 border-gray-200 hover:bg-gray-100'
+                    )}
+                  >
+                    {o.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-sm font-semibold text-gray-700">Ne Konuşuldu?</p>
+              <textarea
+                className="w-full border border-gray-200 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none"
+                rows={4}
+                placeholder="Örn: Fiyatı pahalı buldu, bir sonraki siparişinde indirim istedi. 2 hafta sonra tekrar aranacak."
+                value={callNote}
+                onChange={e => setCallNote(e.target.value)}
+                autoFocus
+              />
+            </div>
+
+            <div className="flex gap-3">
+              <Button variant="outline" className="flex-1" onClick={() => setCallModal(null)}>İptal</Button>
+              <Button
+                className="flex-[2] bg-green-600 hover:bg-green-700 text-white font-bold gap-2"
+                onClick={saveCallLog}
+                disabled={saving}
+              >
+                {saving ? (
+                  <span className="animate-pulse">Kaydediliyor...</span>
+                ) : (
+                  <>
+                    <Check className="h-4 w-4" />
+                    Aramayı Tamamla & Kaydet
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

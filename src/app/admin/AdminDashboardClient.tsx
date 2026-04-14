@@ -1,20 +1,66 @@
 'use client'
 
+import { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { ShoppingBag, TrendingUp, Users, Package, Clock, CreditCard, ShoppingCart } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { ShoppingBag, TrendingUp, Users, Package, Clock, CreditCard, ShoppingCart, Phone, CheckCircle, MessageCircle, AlertCircle } from 'lucide-react'
 import { formatCurrency, formatDate, ORDER_STATUS_COLOR, ORDER_STATUS } from '@/lib/utils'
+import { useToast } from '@/components/ui/use-toast'
 
 interface AdminDashboardClientProps {
   initialData: any
   session: any
 }
 
+const WHATSAPP_TEMPLATES = [
+  { label: 'Genel Hatırlatma', text: (name: string) => `Merhaba ${name}, sizi aramıştım. Müsait olduğunuzda dönebilir misiniz?` },
+  { label: 'Sipariş Bilgisi', text: (name: string) => `Merhaba ${name}, kahve siparişiniz için bilgi almak istedim.` },
+  { label: 'Takip Araması', text: (name: string) => `Merhaba ${name}, geçen görüşmemizde söz vermiştiniz, hatırlatmak istedim.` },
+]
+
 export default function AdminDashboardClient({ initialData, session }: AdminDashboardClientProps) {
-  const { stats, recentOrders, pendingPayments, reminders } = initialData
+  const { stats, recentOrders, pendingPayments, reminders, todayCalls } = initialData
   const isSalesRep = (session?.user as any)?.role === 'SATICI'
+  const { toast } = useToast()
+
+  const [completedIds, setCompletedIds] = useState<Set<string>>(new Set())
+  const [whatsappMenu, setWhatsappMenu] = useState<string | null>(null)
 
   const totalPendingDebt = pendingPayments.reduce((s: number, p: any) => s + p.amount, 0)
   const overdueCount = pendingPayments.filter((p: any) => p.status === 'GECIKTI').length
+
+  const pendingCalls = todayCalls.filter((c: any) => !completedIds.has(c.id))
+  const now = new Date()
+
+  const isLate = (date: any) => new Date(date) < now
+
+  const markDone = async (item: any) => {
+    try {
+      await fetch('/api/admin/call-log', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customerId: item.type === 'CUSTOMER' ? item.id : item.id,
+          note: 'Dashboard\'dan tamamlandı',
+          outcome: 'GORUSTUK',
+          type: item.type,
+          relatedId: item.type === 'ORDER' ? item.id : undefined
+        })
+      })
+      setCompletedIds(prev => new Set(Array.from(prev).concat(item.id)))
+      toast({ title: '✅ Tamamlandı', description: `${item.name} araması tamamlandı.` })
+    } catch {
+      toast({ title: 'Hata', variant: 'destructive' })
+    }
+  }
+
+  const openWhatsApp = (phone: string, name: string, template: (n: string) => string) => {
+    const cleanPhone = phone.replace(/\D/g, '')
+    const fullPhone = cleanPhone.startsWith('0') ? '90' + cleanPhone.slice(1) : cleanPhone.startsWith('90') ? cleanPhone : '90' + cleanPhone
+    const text = encodeURIComponent(template(name.split(' ')[0]))
+    window.open(`https://wa.me/${fullPhone}?text=${text}`, '_blank')
+    setWhatsappMenu(null)
+  }
 
   const cardStats = [
     { title: isSalesRep ? 'Kendi Siparişlerim' : 'Toplam Sipariş', value: stats.totalOrders || 0, icon: ShoppingCart, color: 'text-blue-600', bg: 'bg-blue-50' },
@@ -60,6 +106,107 @@ export default function AdminDashboardClient({ initialData, session }: AdminDash
           )
         })}
       </div>
+
+      {/* ===== BUGÜN ARANACAKLAR WIDGET ===== */}
+      {pendingCalls.length > 0 ? (
+        <Card className="border-orange-200 bg-gradient-to-r from-orange-50 to-amber-50">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center justify-between text-base text-orange-800">
+              <div className="flex items-center gap-2">
+                <div className="relative">
+                  <Phone className="h-5 w-5 text-orange-600" />
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] font-black rounded-full w-4 h-4 flex items-center justify-center">
+                    {pendingCalls.length}
+                  </span>
+                </div>
+                Bugün Aranacaklar
+              </div>
+              <a href="/admin/takip" className="text-xs font-normal text-orange-600 hover:underline">
+                Tümünü gör →
+              </a>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {pendingCalls.slice(0, 5).map((item: any) => (
+              <div 
+                key={item.id} 
+                className={`flex items-center justify-between p-3 rounded-xl border bg-white shadow-sm gap-3 ${isLate(item.date) ? 'border-red-200' : 'border-orange-100'}`}
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm shrink-0 ${isLate(item.date) ? 'bg-red-500 text-white' : 'bg-orange-500 text-white'}`}>
+                    {item.name.charAt(0)}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-semibold text-sm text-gray-900 truncate">{item.name}</p>
+                    <div className="flex items-center gap-2">
+                      {item.phone && <p className="text-xs text-gray-500">{item.phone}</p>}
+                      {isLate(item.date) && (
+                        <span className="flex items-center gap-0.5 text-[10px] font-bold text-red-600">
+                          <AlertCircle className="h-2.5 w-2.5" /> Gecikti
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0 relative">
+                  {item.phone && (
+                    <>
+                      <button
+                        onClick={() => setWhatsappMenu(whatsappMenu === item.id ? null : item.id)}
+                        className="w-8 h-8 rounded-lg bg-green-500 hover:bg-green-600 flex items-center justify-center transition-colors shadow-sm"
+                        title="WhatsApp Mesaj"
+                      >
+                        <MessageCircle className="h-4 w-4 text-white" />
+                      </button>
+                      {whatsappMenu === item.id && (
+                        <div className="absolute right-0 top-9 z-50 bg-white rounded-xl shadow-xl border border-gray-100 p-2 w-56 space-y-1">
+                          <p className="text-[10px] font-bold text-gray-400 uppercase px-2 pb-1">Şablon Seç</p>
+                          {WHATSAPP_TEMPLATES.map((tpl, i) => (
+                            <button
+                              key={i}
+                              onClick={() => openWhatsApp(item.phone, item.name, tpl.text)}
+                              className="w-full text-left text-xs px-3 py-2 rounded-lg hover:bg-green-50 text-gray-700 hover:text-green-700 transition-colors"
+                            >
+                              {tpl.label}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      <a
+                        href={`tel:${item.phone}`}
+                        className="w-8 h-8 rounded-lg bg-blue-600 hover:bg-blue-700 flex items-center justify-center transition-colors shadow-sm"
+                        title="Ara"
+                      >
+                        <Phone className="h-4 w-4 text-white" />
+                      </a>
+                    </>
+                  )}
+                  <Button
+                    size="sm"
+                    onClick={() => markDone(item)}
+                    className="h-8 px-2.5 gap-1 bg-green-600 hover:bg-green-700 text-white text-xs font-bold shadow-sm"
+                  >
+                    <CheckCircle className="h-3.5 w-3.5" />
+                    <span className="hidden sm:inline">Arandı</span>
+                  </Button>
+                </div>
+              </div>
+            ))}
+            {pendingCalls.length > 5 && (
+              <p className="text-center text-xs text-orange-600 pt-1">
+                +{pendingCalls.length - 5} daha… <a href="/admin/takip" className="underline font-bold">Tümünü gör</a>
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      ) : (
+        <Card className="border-green-200 bg-green-50/50">
+          <CardContent className="py-4 flex items-center gap-3">
+            <CheckCircle className="h-5 w-5 text-green-500 shrink-0" />
+            <p className="text-sm text-green-700 font-medium">Harika! Bugün için bekleyen aramanız bulunmuyor.</p>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card>

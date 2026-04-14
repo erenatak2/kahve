@@ -58,9 +58,10 @@ async function getDashboardData(session: any) {
     take: 4
   })
 
-  // 4. Hatırlatıcılar
   const today = new Date()
   today.setHours(0, 0, 0, 0)
+  const todayEnd = new Date()
+  todayEnd.setHours(23, 59, 59, 999)
 
   const reminders = await prisma.order.findMany({
     where: {
@@ -77,6 +78,34 @@ async function getDashboardData(session: any) {
     take: 5
   })
 
+  // "Bugün Aranacaklar" — gecikmiş + bugün planlanmış
+  const todayCalls = await prisma.customer.findMany({
+    where: {
+      nextCallDate: { lte: todayEnd },
+      followUpStatus: 'BEKLIYOR',
+      ...(isSalesRep ? { salesRepId: userId } : {})
+    },
+    include: {
+      user: { select: { name: true } }
+    },
+    orderBy: { nextCallDate: 'asc' },
+    take: 10
+  })
+
+  // Sipariş bazlı bugünkü hatırlatıcılar
+  const todayOrderReminders = await prisma.order.findMany({
+    where: {
+      reminderAt: { lte: todayEnd },
+      followupStatus: 'BEKLIYOR',
+      ...(isSalesRep ? { customer: { salesRepId: userId } } : {})
+    },
+    include: {
+      customer: { include: { user: { select: { name: true } } } }
+    },
+    orderBy: { reminderAt: 'asc' },
+    take: 10
+  })
+
   return {
     stats: {
       totalOrders,
@@ -86,7 +115,24 @@ async function getDashboardData(session: any) {
     },
     recentOrders,
     pendingPayments,
-    reminders
+    reminders,
+    todayCalls: [
+      ...todayCalls.map(c => ({
+        id: c.id,
+        type: 'CUSTOMER' as const,
+        name: c.businessName || c.user?.name || '',
+        phone: c.phone || '',
+        date: c.nextCallDate
+      })),
+      ...todayOrderReminders.map(o => ({
+        id: o.id,
+        type: 'ORDER' as const,
+        name: o.customer?.businessName || o.customer?.user?.name || '',
+        phone: o.customer?.phone || '',
+        date: o.reminderAt,
+        note: o.reminderNote
+      }))
+    ]
   }
 }
 

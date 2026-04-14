@@ -199,13 +199,23 @@ export default function EkipYonetimiClient({ initialTeam }: EkipYonetimiClientPr
                             <p className="text-[10px] text-gray-400 uppercase font-bold">Ciro</p>
                             <p className="text-sm font-bold text-green-600">{formatCurrency(member.stats?.totalSales || 0)}</p>
                           </div>
-                          <div className="text-center border-x px-6 border-gray-100">
+                          <div className="text-center border-x px-4 border-gray-100">
                             <p className="text-[10px] text-gray-400 uppercase font-bold">Sipariş</p>
                             <p className="text-sm font-bold text-gray-700">{member.stats?.orderCount || 0}</p>
                           </div>
-                          <div className="text-center">
+                          <div className="text-center border-r px-4 border-gray-100">
                             <p className="text-[10px] text-gray-400 uppercase font-bold">Müşteri</p>
                             <p className="text-sm font-bold text-blue-600">{member.stats?.customerCount || 0}</p>
+                          </div>
+                          <div className="text-center border-r px-4 border-gray-100">
+                            <p className="text-[10px] text-gray-400 uppercase font-bold">Arama</p>
+                            <p className="text-sm font-bold text-purple-600">{member.stats?.callCount || 0}</p>
+                          </div>
+                          <div className="text-center">
+                            <p className="text-[10px] text-gray-400 uppercase font-bold">Dönüşüm</p>
+                            <p className={`text-sm font-bold ${(member.stats?.successRate || 0) >= 70 ? 'text-green-600' : (member.stats?.successRate || 0) >= 40 ? 'text-yellow-600' : 'text-red-500'}`}>
+                              %{member.stats?.successRate || 0}
+                            </p>
                           </div>
                         </div>
 

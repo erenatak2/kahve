@@ -67,6 +67,8 @@ model Customer {
   // Takip (CRM) Alanları
   nextCallDate    DateTime?
   followUpStatus  String    @default("BEKLIYOR") // BEKLIYOR, ARANDI
+
+  callLogs        CallLog[]
   
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
@@ -193,5 +195,17 @@ model PaymentNotification {
   updatedAt       DateTime @updatedAt
 
   order    Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+}
+
+model CallLog {
+  id         String   @id @default(cuid())
+  customerId String
+  note       String
+  calledAt   DateTime @default(now())
+  calledBy   String?  // Hangi satıcının aradığı (userId)
+  calledByName String? // Satıcı adı (denormalized, hız için)
+  outcome    String   @default("GORUSTUK") // GORUSTUK, ULASAMADIK, MESAJ_BIRAKTIK
+
   customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
 }
