@@ -106,6 +106,44 @@ async function getDashboardData(session: any) {
     take: 10
   })
 
+  // Akıllı Analiz: Kahvesi Bitmek Üzere Olanlar (Riskli Müşteriler)
+  const customersWithFreq = await prisma.customer.findMany({
+    where: {
+      avgOrderDays: { not: null },
+      isActive: true,
+      ...(isSalesRep ? { salesRepId: userId } : {})
+    },
+    include: {
+      user: { select: { name: true } },
+      orders: {
+        where: { status: { not: 'IPTAL' } },
+        orderBy: { createdAt: 'desc' },
+        take: 1
+      }
+    }
+  })
+
+  const atRiskCustomers = customersWithFreq.filter(c => {
+    if (c.orders.length === 0 || !c.avgOrderDays) return false
+    const lastOrderDate = new Date(c.orders[0].createdAt).getTime()
+    const daysSinceLastOrder = (new Date().getTime() - lastOrderDate) / (1000 * 60 * 60 * 24)
+    // Eğer ortalama süreyi %20 aştıysa riskli kabul et
+    return daysSinceLastOrder > (c.avgOrderDays * 1.2)
+  }).map(c => ({
+    id: c.id,
+    name: c.businessName || c.user?.name || '',
+    phone: c.phone || '',
+    avgDays: Math.round(c.avgOrderDays || 0),
+    lastOrderDate: c.orders[0].createdAt
+  }))
+
+  // Mevcut bölgeleri getir (Filtre için)
+  const regions = await prisma.customer.findMany({
+    where: { region: { not: null } },
+    select: { region: true },
+    distinct: ['region']
+  })
+
   return {
     stats: {
       totalOrders,
@@ -116,13 +154,16 @@ async function getDashboardData(session: any) {
     recentOrders,
     pendingPayments,
     reminders,
+    atRiskCustomers,
+    regions: regions.map(r => r.region).filter(Boolean),
     todayCalls: [
       ...todayCalls.map(c => ({
         id: c.id,
         type: 'CUSTOMER' as const,
         name: c.businessName || c.user?.name || '',
         phone: c.phone || '',
-        date: c.nextCallDate
+        date: c.nextCallDate,
+        region: c.region
       })),
       ...todayOrderReminders.map(o => ({
         id: o.id,
@@ -130,7 +171,8 @@ async function getDashboardData(session: any) {
         name: o.customer?.businessName || o.customer?.user?.name || '',
         phone: o.customer?.phone || '',
         date: o.reminderAt,
-        note: o.reminderNote
+        note: o.reminderNote,
+        region: o.customer?.region
       }))
     ]
   }

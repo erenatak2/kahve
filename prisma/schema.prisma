@@ -67,6 +67,8 @@ model Customer {
   // Takip (CRM) Alanları
   nextCallDate    DateTime?
   followUpStatus  String    @default("BEKLIYOR") // BEKLIYOR, ARANDI
+  avgOrderDays    Float?    // Ortalama sipariş verme sıklığı (gün)
+  region          String?   // Bölge (Örn: Beşiktaş, Kadıköy veya Şehir)
 
   callLogs        CallLog[]
   

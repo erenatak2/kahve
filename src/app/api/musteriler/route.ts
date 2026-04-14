@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Yetkisiz' }, { status: 401 })
   }
 
-  const { name, email, password, phone, address, shippingAddress, city, taxNumber, taxOffice, businessName, discountRate, notes, salesRepId } = await req.json()
+  const { name, email, password, phone, address, shippingAddress, city, region, taxNumber, taxOffice, businessName, discountRate, notes, salesRepId } = await req.json()
 
   if (!name || !email) return NextResponse.json({ error: 'Ad ve e-posta zorunlu' }, { status: 400 })
 
@@ -67,7 +67,7 @@ export async function POST(req: NextRequest) {
         role: 'MUSTERI',
         customer: {
           create: { 
-            phone, address, shippingAddress, city, taxNumber, taxOffice, businessName, discountRate: discountRate || 0, notes,
+            phone, address, shippingAddress, city, region, taxNumber, taxOffice, businessName, discountRate: discountRate || 0, notes,
             ...(assignedSalesRepId ? { salesRepId: assignedSalesRepId } : {})
           },
         },

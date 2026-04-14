@@ -31,7 +31,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     return NextResponse.json({ error: 'Yetkisiz' }, { status: 401 })
   }
 
-  const { phone, address, city, taxNumber, taxOffice, businessName, discountRate, notes, isActive, name, salesRepId } = await req.json()
+  const { phone, address, city, region, taxNumber, taxOffice, businessName, discountRate, notes, isActive, name, salesRepId } = await req.json()
 
   const customer = await prisma.customer.update({
     where: { id: params.id },
@@ -39,6 +39,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
       phone, 
       address, 
       city, 
+      region,
       taxNumber, 
       taxOffice,
       businessName,

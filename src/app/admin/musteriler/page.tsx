@@ -27,7 +27,7 @@ export default function MusterilerPage() {
   const [showPriceDialog, setShowPriceDialog] = useState(false)
   const [showPasswordDialog, setShowPasswordDialog] = useState(false)
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null)
-  const [form, setForm] = useState({ name: '', email: '', password: '', phone: '', address: '', shippingAddress: '', city: 'İstanbul', taxNumber: '', taxOffice: '', businessName: '', discountRate: '0', notes: '', salesRepId: '' })
+  const [form, setForm] = useState({ name: '', email: '', password: '', phone: '', address: '', shippingAddress: '', city: 'İstanbul', region: '', taxNumber: '', taxOffice: '', businessName: '', discountRate: '0', notes: '', salesRepId: '' })
   const [followUpDays, setFollowUpDays] = useState<Record<string, string>>({})
   const [editingDates, setEditingDates] = useState<Record<string, string>>({})
   const [draftPrices, setDraftPrices] = useState<Record<string, string>>({})
@@ -36,7 +36,7 @@ export default function MusterilerPage() {
   const [passwordValue, setPasswordValue] = useState('')
   const [sameAddress, setSameAddress] = useState(false)
   const [editSameAddress, setEditSameAddress] = useState(false)
-  const [editForm, setEditForm] = useState({ name: '', phone: '', address: '', shippingAddress: '', city: '', taxNumber: '', taxOffice: '', businessName: '', discountRate: '0', notes: '', salesRepId: '', nextCallDate: '', followUpStatus: 'BEKLIYOR' })
+  const [editForm, setEditForm] = useState({ name: '', phone: '', address: '', shippingAddress: '', city: '', region: '', taxNumber: '', taxOffice: '', businessName: '', discountRate: '0', notes: '', salesRepId: '', nextCallDate: '', followUpStatus: 'BEKLIYOR' })
   const [deleteConfirm, setDeleteConfirm] = useState<{ customerId: string; name: string } | null>(null)
   const [exportDialog, setExportDialog] = useState<{ customerId: string; name: string } | null>(null)
   const [exportRange, setExportRange] = useState({ startDate: '', endDate: '' })
@@ -71,7 +71,7 @@ export default function MusterilerPage() {
     if (res.ok) {
       toast({ title: 'Müşteri eklendi' })
       setShowAddDialog(false)
-      setForm({ name: '', email: '', password: '', phone: '', address: '', shippingAddress: '', city: 'İstanbul', taxNumber: '', taxOffice: '', businessName: '', discountRate: '0', notes: '', salesRepId: '' })
+      setForm({ name: '', email: '', password: '', phone: '', address: '', shippingAddress: '', city: 'İstanbul', region: '', taxNumber: '', taxOffice: '', businessName: '', discountRate: '0', notes: '', salesRepId: '' })
       fetchAll()
     } else {
       const err = await res.json().catch(() => ({}))
@@ -101,6 +101,7 @@ export default function MusterilerPage() {
       taxNumber: c.taxNumber || '',
       taxOffice: c.taxOffice || '',
       businessName: c.businessName || '',
+      region: c.region || '',
       discountRate: c.discountRate?.toString() || '0',
       notes: c.notes || '',
       salesRepId: c.salesRepId || '',
@@ -723,6 +724,10 @@ export default function MusterilerPage() {
                 <Input value={form.taxOffice} onChange={e => setForm({...form, taxOffice: e.target.value})} placeholder="Örn: Marmara Kurumlar" />
               </div>
               <div className="space-y-2">
+                <Label>Bölge / Semt (Filtre için)</Label>
+                <Input value={form.region} onChange={e => setForm({...form, region: e.target.value})} placeholder="Örn: Beşiktaş, Kadıköy" />
+              </div>
+              <div className="space-y-2">
                 <Label>TC Kimlik No / Vergi No</Label>
                 <Input
                   placeholder="10 veya 11 haneli numara"
@@ -944,6 +949,10 @@ export default function MusterilerPage() {
               <div className="space-y-2">
                 <Label>Vergi Dairesi</Label>
                 <Input value={editForm.taxOffice} onChange={e => setEditForm({...editForm, taxOffice: e.target.value})} />
+              </div>
+              <div className="space-y-2">
+                <Label>Bölge / Semt (Filtre için)</Label>
+                <Input value={editForm.region} onChange={e => setEditForm({...editForm, region: e.target.value})} placeholder="Örn: Beşiktaş, Kadıköy" />
               </div>
               <div className="space-y-2">
                 <Label>TC Kimlik No / Vergi No</Label>
