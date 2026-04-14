@@ -19,13 +19,12 @@ const WHATSAPP_TEMPLATES = [
 ]
 
 export default function AdminDashboardClient({ initialData, session }: AdminDashboardClientProps) {
-  const { stats, recentOrders, pendingPayments, reminders, todayCalls, atRiskCustomers, regions } = initialData
+  const { stats, recentOrders, pendingPayments, reminders, todayCalls, atRiskCustomers } = initialData
   const isSalesRep = (session?.user as any)?.role === 'SATICI'
   const { toast } = useToast()
 
   const [completedIds, setCompletedIds] = useState<Set<string>>(new Set())
   const [whatsappMenu, setWhatsappMenu] = useState<string | null>(null)
-  const [selectedRegion, setSelectedRegion] = useState<string>('all')
   const [notificationsEnabled, setNotificationsEnabled] = useState(false)
   
   const audioRef = useRef<HTMLAudioElement | null>(null)
@@ -57,8 +56,8 @@ export default function AdminDashboardClient({ initialData, session }: AdminDash
 
   // Kritik aramalar için periyodik kontrol (demo amaçlı basitleştirilmiş)
   useEffect(() => {
-    if (notificationsEnabled && pendingCalls.length > 0) {
-      const lateCalls = pendingCalls.filter((c: any) => isLate(c.date))
+    if (notificationsEnabled && pendingCallsCount > 0) {
+      const lateCalls = todayCalls.filter((c: any) => !completedIds.has(c.id) && isLate(c.date))
       if (lateCalls.length > 0) {
         // Zil çal ve bildirim gönder
         audioRef.current?.play().catch(() => {})
@@ -75,8 +74,7 @@ export default function AdminDashboardClient({ initialData, session }: AdminDash
 
   const filteredCalls = todayCalls.filter((c: any) => {
     const isNotDone = !completedIds.has(c.id)
-    const matchesRegion = selectedRegion === 'all' || c.region === selectedRegion
-    return isNotDone && matchesRegion
+    return isNotDone
   })
 
   const pendingCallsCount = todayCalls.filter((c: any) => !completedIds.has(c.id)).length
@@ -128,12 +126,10 @@ export default function AdminDashboardClient({ initialData, session }: AdminDash
   return (
     <div className="p-4 md:p-6 space-y-4 md:space-y-6">
       {pendingCallsCount > 0 && (
-        <div className="bg-orange-600 text-white py-2 overflow-hidden whitespace-nowrap relative rounded-xl shadow-lg border-2 border-orange-400">
-          <div className="inline-block animate-marquee group-hover:pause italic font-bold">
-            📢 Dikkat! Bugün tamamlamanız gereken {pendingCallsCount} adet arama bulunuyor. Müşterilerinize geri dönüş yapmayı unutmayın! — &nbsp;
-          </div>
-          <div className="inline-block animate-marquee group-hover:pause italic font-bold">
-            📢 Dikkat! Bugün tamamlamanız gereken {pendingCallsCount} adet arama bulunuyor. Müşterilerinize geri dönüş yapmayı unutmayın! — &nbsp;
+        <div className="bg-orange-600 text-white py-3 px-6 relative rounded-xl shadow-lg border-2 border-orange-400 animate-in slide-in-from-left duration-700 ease-out">
+          <div className="flex items-center gap-3 font-bold italic">
+            <span className="text-xl">📢</span>
+            <p>Dikkat! Bugün tamamlamanız gereken <span className="bg-orange-500 px-2 py-0.5 rounded-lg border border-orange-300 not-italic">{pendingCallsCount}</span> adet arama bulunuyor. Müşterilerinize geri dönüş yapmayı unutmayın!</p>
           </div>
         </div>
       )}
@@ -196,20 +192,6 @@ export default function AdminDashboardClient({ initialData, session }: AdminDash
             </div>
             Bugün Aranacaklar
           </CardTitle>
-          
-          <div className="flex items-center gap-2">
-            <MapPin className="h-4 w-4 text-orange-400" />
-            <select 
-              className="text-xs border border-orange-200 rounded-lg p-1.5 focus:outline-none focus:ring-1 focus:ring-orange-400 bg-white"
-              value={selectedRegion}
-              onChange={(e) => setSelectedRegion(e.target.value)}
-            >
-              <option value="all">Tüm Bölgeler</option>
-              {regions.map((r: string) => (
-                <option key={r} value={r}>{r}</option>
-              ))}
-            </select>
-          </div>
         </CardHeader>
         <CardContent className="space-y-2">
           {filteredCalls.length > 0 ? (

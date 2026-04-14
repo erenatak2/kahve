@@ -110,6 +110,9 @@ export function AdminSidebar({ user, onClose }: { user: { name?: string; email?:
     const saved = localStorage.getItem('seenCounts')
     if (saved) {
       setSeenCounts(JSON.parse(saved))
+    } else {
+      // İlk kez açılıyorsa veya storage boşsa, o anki sayıları 'görüldü' kabul et
+      // Bu işlem counts geldiğinde yapılacak
     }
   }, [])
 
@@ -118,23 +121,29 @@ export function AdminSidebar({ user, onClose }: { user: { name?: string; email?:
     const currentSeen = { ...seenCounts }
     let updated = false
     
-    if (pathname === '/admin/siparisler' && counts.orders > seenCounts.orders) {
+    if (pathname.startsWith('/admin/siparisler') && counts.orders > seenCounts.orders) {
       currentSeen.orders = counts.orders
       updated = true
     }
-    if (pathname === '/admin/odeme-bildirimler' && counts.notifications > seenCounts.notifications) {
+    if (pathname.startsWith('/admin/odeme-bildirimler') && counts.notifications > seenCounts.notifications) {
       currentSeen.notifications = counts.notifications
       updated = true
     }
-    if (pathname === '/admin/musteriler' && counts.customers > seenCounts.customers) {
+    if (pathname.startsWith('/admin/musteriler') && counts.customers > seenCounts.customers) {
       currentSeen.customers = counts.customers
       updated = true
     }
-    if (pathname === '/admin/takip' && counts.reminders > seenCounts.reminders) {
+    if (pathname.startsWith('/admin/takip')) {
       currentSeen.reminders = counts.reminders
       updated = true
     }
     
+    // 'seenCounts' hiçbir zaman toplam 'counts' değerini aşmamalı (sayı azaldıysa otomatik düşmeli)
+    if (seenCounts.orders > counts.orders) { currentSeen.orders = counts.orders; updated = true; }
+    if (seenCounts.notifications > counts.notifications) { currentSeen.notifications = counts.notifications; updated = true; }
+    if (seenCounts.customers > counts.customers) { currentSeen.customers = counts.customers; updated = true; }
+    if (seenCounts.reminders > counts.reminders) { currentSeen.reminders = counts.reminders; updated = true; }
+
     if (updated) {
       setSeenCounts(currentSeen)
       localStorage.setItem('seenCounts', JSON.stringify(currentSeen))
@@ -183,6 +192,14 @@ export function AdminSidebar({ user, onClose }: { user: { name?: string; email?:
               try {
                 const data: BadgeCounts = JSON.parse(match[1])
                 
+                // İlk yükleme kontrolü: Eğer seenCounts henüz hiç set edilmediyse (0 ise)
+                // Mevcut sayıları seenCounts'a eşitle ki eski her şey 'bildirim' olarak yanmasın
+                const isFirstLoad = !localStorage.getItem('seenCounts')
+                if (isFirstLoad) {
+                  setSeenCounts(data)
+                  localStorage.setItem('seenCounts', JSON.stringify(data))
+                }
+
                 // Ses kontrolü - sayı artışı varsa ve ses açıksa
                 const ordersIncreased = data.orders > prevCounts.current.orders
                 const notificationsIncreased = data.notifications > prevCounts.current.notifications
@@ -250,6 +267,7 @@ export function AdminSidebar({ user, onClose }: { user: { name?: string; email?:
         }).map((item) => {
           const Icon = item.icon
           const isActive = pathname === item.href
+          
           const badgeCount = item.badgeKey ? Math.max(0, counts[item.badgeKey] - seenCounts[item.badgeKey]) : 0
           
           return (

@@ -43,6 +43,7 @@ export async function GET(req: NextRequest) {
     type: 'ORDER',
     customerId: o.customerId,
     customerName: o.customer?.businessName || o.customer?.user?.name,
+    region: o.customer?.region,
     phone: o.customer?.phone,
     note: o.reminderNote,
     date: o.reminderAt
@@ -53,6 +54,7 @@ export async function GET(req: NextRequest) {
     type: 'CUSTOMER',
     customerId: c.id,
     customerName: c.businessName || c.user?.name,
+    region: c.region,
     phone: c.phone,
     note: 'Düzenli Takip Araması',
     date: c.nextCallDate
