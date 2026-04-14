@@ -63,13 +63,13 @@ model Customer {
   salesRepId      String?  // Satış Temsilcisi (Plasiyer) bağlantısı
   notes           String?
   isActive        Boolean  @default(true)
+  
+  // Takip (CRM) Alanları
+  nextCallDate    DateTime?
+  followUpStatus  String    @default("BEKLIYOR") // BEKLIYOR, ARANDI
+  
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
-
-  // Takip ve Hatırlatıcılar
-  nextCallDate    DateTime? // Bir sonraki arama tarihi
-  followUpNote    String?   // Takip notu
-  followUpStatus  String    @default("BEKLIYOR") // BEKLIYOR, ARANDI
 
   user                 User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
   salesRep             User?                 @relation("SalesRepToCustomer", fields: [salesRepId], references: [id])

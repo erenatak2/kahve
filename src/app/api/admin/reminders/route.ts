@@ -11,34 +11,54 @@ export async function GET(req: NextRequest) {
   const userId = (session.user as any).id
   const now = new Date()
 
-  const reminders = await prisma.order.findMany({
+  // 1. Sipariş bazlı hatırlatıcılar
+  const orderReminders = await prisma.order.findMany({
     where: {
-      reminderAt: { 
-        not: null,
-        lte: now 
-      },
+      reminderAt: { not: null, lte: now },
       followupStatus: 'BEKLIYOR',
-      ...(role === 'SATICI' && {
-        customer: {
-          salesRepId: userId
-        }
-      })
+      ...(role === 'SATICI' && { customer: { salesRepId: userId } })
     },
     include: {
-      customer: {
-        include: {
-          user: {
-            select: { name: true, email: true }
-          }
-        }
-      }
+      customer: { include: { user: { select: { name: true, email: true } } } }
     },
-    orderBy: {
-      reminderAt: 'asc'
-    }
+    orderBy: { reminderAt: 'asc' }
   })
 
-  return NextResponse.json(reminders)
+  // 2. Müşteri bazlı (YENİ) takip hatırlatıcıları
+  const customerReminders = await prisma.customer.findMany({
+    where: {
+      nextCallDate: { not: null, lte: now },
+      followUpStatus: 'BEKLIYOR',
+      ...(role === 'SATICI' && { salesRepId: userId })
+    },
+    include: {
+      user: { select: { name: true, email: true } }
+    },
+    orderBy: { nextCallDate: 'asc' }
+  })
+
+  // Formatları birleştir
+  const formattedOrders = orderReminders.map(o => ({
+    id: o.id,
+    type: 'ORDER',
+    customerId: o.customerId,
+    customerName: o.customer?.businessName || o.customer?.user?.name,
+    phone: o.customer?.phone,
+    note: o.reminderNote,
+    date: o.reminderAt
+  }))
+
+  const formattedCustomers = customerReminders.map(c => ({
+    id: c.id,
+    type: 'CUSTOMER',
+    customerId: c.id,
+    customerName: c.businessName || c.user?.name,
+    phone: c.phone,
+    note: 'Düzenli Takip Araması',
+    date: c.nextCallDate
+  }))
+
+  return NextResponse.json([...formattedOrders, ...formattedCustomers].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()))
 }
 
 export async function PUT(req: NextRequest) {
@@ -49,15 +69,23 @@ export async function PUT(req: NextRequest) {
   const idFromQuery = url.searchParams.get('id')
   
   const body = await req.json().catch(() => ({}))
-  const orderId = idFromQuery || body.id || body.orderId
+  const id = idFromQuery || body.id
+  const type = body.type || 'ORDER' // 'ORDER' veya 'CUSTOMER'
   const status = body.status || 'ARANDI'
 
-  if (!orderId) return NextResponse.json({ error: 'ID gerekli' }, { status: 400 })
+  if (!id) return NextResponse.json({ error: 'ID gerekli' }, { status: 400 })
 
-  const order = await prisma.order.update({
-    where: { id: orderId },
-    data: { followupStatus: status }
-  })
+  if (type === 'CUSTOMER') {
+    await prisma.customer.update({
+      where: { id },
+      data: { followUpStatus: status, nextCallDate: null }
+    })
+  } else {
+    await prisma.order.update({
+      where: { id },
+      data: { followupStatus: status }
+    })
+  }
 
-  return NextResponse.json(order)
+  return NextResponse.json({ success: true })
 }

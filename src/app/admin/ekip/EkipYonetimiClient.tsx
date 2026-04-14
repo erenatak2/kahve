@@ -43,14 +43,14 @@ export default function EkipYonetimiClient({ initialTeam }: EkipYonetimiClientPr
     try {
       const url = '/api/admin/ekip'
       const payload = editingId ? { id: editingId, name, email, password, role } : { name, email, password, role }
-      
+
       const res = await fetch(url, {
         method: editingId ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       })
       const data = await res.json()
-      
+
       if (res.ok) {
         toast({ title: 'Başarılı', description: editingId ? 'Ekip üyesi güncellendi.' : 'Yeni ekip üyesi sisteme eklendi.' })
         setEditingId(null)
@@ -128,12 +128,12 @@ export default function EkipYonetimiClient({ initialTeam }: EkipYonetimiClientPr
                 <div className="space-y-2">
                   <Label>{editingId ? 'Sisteme Giriş Şifresi (Değiştirmek istemiyorsanız boş bırakın)' : 'Sisteme Giriş Şifresi'}</Label>
                   <div className="relative">
-                    <Input 
-                      type={showPassword ? 'text' : 'password'} 
-                      required={!editingId} 
-                      value={password} 
-                      onChange={e => setPassword(e.target.value)} 
-                      placeholder={editingId ? 'Yeni şifre belirleyin' : 'Şifre belirleyin'} 
+                    <Input
+                      type={showPassword ? 'text' : 'password'}
+                      required={!editingId}
+                      value={password}
+                      onChange={e => setPassword(e.target.value)}
+                      placeholder={editingId ? 'Yeni şifre belirleyin' : 'Şifre belirleyin'}
                     />
                     <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600">
                       {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -188,13 +188,12 @@ export default function EkipYonetimiClient({ initialTeam }: EkipYonetimiClientPr
                             <p className="font-semibold text-gray-900">{member.name}</p>
                             <p className="text-sm text-gray-500">{member.email}</p>
                           </div>
-                          <span className={`px-2.5 py-1 text-[10px] font-bold rounded-full ${
-                            member.role === 'ADMIN' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'
-                          }`}>
+                          <span className={`px-2.5 py-1 text-[10px] font-bold rounded-full ${member.role === 'ADMIN' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'
+                            }`}>
                             {member.role === 'ADMIN' ? 'YÖNETİCİ' : 'SATICI'}
                           </span>
                         </div>
-                        
+
                         <div className="flex items-center gap-6 bg-white p-2 px-4 rounded-xl border border-gray-100 shadow-sm">
                           <div className="text-center">
                             <p className="text-[10px] text-gray-400 uppercase font-bold">Ciro</p>

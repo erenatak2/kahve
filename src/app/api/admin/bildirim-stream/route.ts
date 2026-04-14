@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
           const [orderCount, notificationCount, customerCount, reminderCount] = await Promise.all([
             prisma.order.count({ where: { status: 'HAZIRLANIYOR' } }),
             prisma.paymentNotification.count({ where: { status: 'BEKLIYOR' } }),
-            prisma.customer.count(),
+            prisma.customer.count({ where: { isActive: true } }),
             prisma.customer.count({ 
               where: { 
                 followUpStatus: 'BEKLIYOR', 
@@ -53,11 +53,16 @@ export async function GET(request: NextRequest) {
       const interval = setInterval(sendCounts, 3000)
       
       // Client bağlantıyı kesince temizle
-      request.signal.addEventListener('abort', () => {
+      const cleanup = () => {
         isActive = false
         clearInterval(interval)
-        controller.close()
-      })
+        try { controller.close() } catch (e) {}
+      }
+
+      request.signal.addEventListener('abort', cleanup)
+    },
+    cancel() {
+      // Stream iptal edildiğinde (örn. başka yere navigate edilince)
     }
   })
 

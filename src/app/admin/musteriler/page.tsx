@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
-import { Plus, Search, Tag, KeyRound, Trash2, Pencil, DollarSign, ShoppingBag, AlertTriangle, FileSpreadsheet, FileText, UserCheck, Users2, Check } from 'lucide-react'
+import { Plus, Search, Tag, KeyRound, Trash2, Pencil, DollarSign, ShoppingBag, AlertTriangle, FileSpreadsheet, FileText, UserCheck, Users2, Check, Phone, ChevronUp, ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -11,7 +11,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { useToast } from '@/components/ui/use-toast'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { formatCurrency } from '@/lib/utils'
+import { formatCurrency, cn } from '@/lib/utils'
 import { Switch } from '@/components/ui/switch'
 
 export default function MusterilerPage() {
@@ -28,13 +28,15 @@ export default function MusterilerPage() {
   const [showPasswordDialog, setShowPasswordDialog] = useState(false)
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null)
   const [form, setForm] = useState({ name: '', email: '', password: '', phone: '', address: '', shippingAddress: '', city: 'İstanbul', taxNumber: '', taxOffice: '', businessName: '', discountRate: '0', notes: '', salesRepId: '' })
+  const [followUpDays, setFollowUpDays] = useState<Record<string, string>>({})
+  const [editingDates, setEditingDates] = useState<Record<string, string>>({})
   const [draftPrices, setDraftPrices] = useState<Record<string, string>>({})
   const [draftDiscounts, setDraftDiscounts] = useState<Record<string, string>>({})
   const [priceSearch, setPriceSearch] = useState('')
   const [passwordValue, setPasswordValue] = useState('')
   const [sameAddress, setSameAddress] = useState(false)
   const [editSameAddress, setEditSameAddress] = useState(false)
-  const [editForm, setEditForm] = useState({ name: '', phone: '', address: '', shippingAddress: '', city: '', taxNumber: '', taxOffice: '', businessName: '', discountRate: '0', notes: '', salesRepId: '' })
+  const [editForm, setEditForm] = useState({ name: '', phone: '', address: '', shippingAddress: '', city: '', taxNumber: '', taxOffice: '', businessName: '', discountRate: '0', notes: '', salesRepId: '', nextCallDate: '', followUpStatus: 'BEKLIYOR' })
   const [deleteConfirm, setDeleteConfirm] = useState<{ customerId: string; name: string } | null>(null)
   const [exportDialog, setExportDialog] = useState<{ customerId: string; name: string } | null>(null)
   const [exportRange, setExportRange] = useState({ startDate: '', endDate: '' })
@@ -102,6 +104,8 @@ export default function MusterilerPage() {
       discountRate: c.discountRate?.toString() || '0',
       notes: c.notes || '',
       salesRepId: c.salesRepId || '',
+      nextCallDate: c.nextCallDate ? new Date(c.nextCallDate).toISOString().split('T')[0] : '',
+      followUpStatus: c.followUpStatus || 'BEKLIYOR',
     })
     // Shipping address address ile aynıysa veya boşsa checkbox isaretli gelsin
     setEditSameAddress(!c.shippingAddress || c.shippingAddress === c.address)
@@ -146,15 +150,15 @@ export default function MusterilerPage() {
     else toast({ title: 'Hata', variant: 'destructive' })
   }
 
-  const handleQuickFollowUp = async (customerId: string, days: string) => {
-    if (!days || isNaN(parseInt(days))) return toast({ title: 'Geçerli bir gün girin', variant: 'destructive' });
-    const res = await fetch('/api/musteriler/takip', {
-      method: 'POST',
+  const handleQuickAssign = async (customerId: string, salesRepId: string) => {
+    if (!salesRepId) return
+    const res = await fetch(`/api/musteriler/${customerId}`, {
+      method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ customerId, days }),
+      body: JSON.stringify({ salesRepId }),
     })
     if (res.ok) {
-      toast({ title: 'Takip eklendi', description: `${days} gün sonrasına hatılartma kuruldu.` })
+      toast({ title: 'Müşteri atandı' })
       fetchAll()
     } else {
       toast({ title: 'Hata', variant: 'destructive' })
@@ -224,6 +228,41 @@ export default function MusterilerPage() {
       toast({ title: 'Export hatası', variant: 'destructive' })
     }
     setExporting(false)
+  }
+
+  const handleSetFollowUp = async (customerId: string, isManualDate = false) => {
+    const payload: any = { customerId };
+    
+    if (isManualDate) {
+      const selectedDate = editingDates[customerId];
+      if (!selectedDate) return;
+      payload.date = selectedDate; // Tarihi direkt gönder
+    } else {
+      const days = followUpDays[customerId];
+      if (days === undefined || isNaN(parseInt(days))) return;
+      payload.days = days;
+    }
+    
+    try {
+      const res = await fetch('/api/admin/takip', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
+      if (res.ok) {
+        toast({ title: 'Takip güncellendi' })
+        // Artık buradaki setFollowUpDays(prev => ({ ...prev, [customerId]: '' })) satırını siliyoruz
+        // Böylece yazdığınız rakam kutucukta kalmaya devam edecek.
+        setEditingDates(prev => {
+          const next = { ...prev };
+          delete next[customerId];
+          return next;
+        })
+        fetchAll()
+      }
+    } catch {
+      toast({ title: 'Hata', variant: 'destructive' })
+    }
   }
 
   const confirmDeleteCustomer = async () => {
@@ -333,9 +372,9 @@ export default function MusterilerPage() {
                 <TableHead className="hidden lg:table-cell text-right">Sipariş</TableHead>
                 <TableHead className="hidden lg:table-cell text-right">Ciro</TableHead>
                 <TableHead className="hidden lg:table-cell text-right">Borç</TableHead>
-                <TableHead className="text-right">Takip Ayarla</TableHead>
                 <TableHead className="text-right">Genel İndirim</TableHead>
                 <TableHead className="text-right">İşlemler</TableHead>
+                <TableHead className="w-[100px] text-center">Takip (Gün)</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -401,33 +440,6 @@ export default function MusterilerPage() {
                       )}
                     </TableCell>
                     <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
-                        <Input 
-                          type="number" 
-                          placeholder="Gün" 
-                          className="w-16 h-8 text-xs text-center px-1" 
-                          onKeyPress={(e) => {
-                            if (e.key === 'Enter') {
-                              handleQuickFollowUp(c.id, (e.target as any).value)
-                              ;(e.target as any).value = ''
-                            }
-                          }}
-                        />
-                        <Button 
-                          size="sm" 
-                          variant="ghost" 
-                          className="h-8 w-8 p-0 text-blue-600 hover:bg-blue-50"
-                          onClick={(e) => {
-                            const input = e.currentTarget.previousElementSibling as HTMLInputElement
-                            handleQuickFollowUp(c.id, input.value)
-                            input.value = ''
-                          }}
-                        >
-                          <Phone className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right">
                       <span className="text-sm font-medium text-blue-600">%{c.discountRate}</span>
                     </TableCell>
                     <TableCell className="text-right">
@@ -448,6 +460,98 @@ export default function MusterilerPage() {
                           <span className="hidden xl:inline">Excel</span>
                         </Button>
                       </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center justify-center gap-1 group">
+                        <div className="relative">
+                          <Input 
+                            type="number" 
+                            placeholder="Örn:"
+                            className="h-8 w-14 text-center text-xs p-1 focus:ring-1 focus:ring-blue-400 bg-gray-50/50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                            value={
+                              followUpDays[c.id] !== undefined 
+                                ? followUpDays[c.id] 
+                                : (c.nextCallDate && c.followUpStatus === 'BEKLIYOR'
+                                    ? Math.max(0, Math.ceil((new Date(c.nextCallDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))).toString()
+                                    : '')
+                            }
+                            onChange={e => setFollowUpDays(prev => ({ ...prev, [c.id]: e.target.value }))}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                handleSetFollowUp(c.id);
+                              }
+                            }}
+                            onClick={e => e.stopPropagation()}
+                          />
+                        </div>
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); handleSetFollowUp(c.id) }}
+                          className={cn(
+                            "p-1.5 rounded-md transition-all",
+                            (followUpDays[c.id] || (c.nextCallDate && c.followUpStatus === 'BEKLIYOR')) ? "bg-blue-600 text-white shadow-sm" : "bg-gray-100 text-gray-400 hover:bg-gray-200"
+                          )}
+                          title="Takip Ayarla"
+                        >
+                          <Phone className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                      {c.nextCallDate && c.followUpStatus === 'BEKLIYOR' && (
+                        <div className="mt-1 flex flex-col items-center">
+                          {editingDates[c.id] !== undefined ? (
+                            <div className="flex items-center justify-center gap-1.5 animate-in fade-in zoom-in duration-200">
+                              <Input 
+                                type="date"
+                                className="h-7 w-[130px] text-[10px] p-1 border-blue-400 focus:ring-1 focus:ring-blue-500 rounded-lg shadow-sm"
+                                value={editingDates[c.id]}
+                                onChange={e => {
+                                  const newDate = e.target.value;
+                                  setEditingDates(prev => ({ ...prev, [c.id]: newDate }));
+                                  
+                                  if (newDate) {
+                                    // Seçilen tarihe göre gün farkını hesapla ve üstteki kutucuğu güncelle
+                                    const diff = Math.ceil((new Date(newDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+                                    setFollowUpDays(prev => ({ ...prev, [c.id]: Math.max(0, diff).toString() }));
+                                  }
+                                }}
+                                autoFocus
+                              />
+                              <div className="flex gap-1">
+                                <Button 
+                                  size="sm" 
+                                  className="h-7 px-2 text-[10px] bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow-sm"
+                                  onClick={() => handleSetFollowUp(c.id, true)}
+                                >
+                                  Kaydet
+                                </Button>
+                                <Button 
+                                  size="sm" 
+                                  variant="outline"
+                                  className="h-7 px-2 text-[10px] border-gray-200 text-gray-600 hover:bg-gray-50 rounded-lg"
+                                  onClick={() => setEditingDates(prev => {
+                                    const next = { ...prev };
+                                    delete next[c.id];
+                                    return next;
+                                  })}
+                                >
+                                  İptal
+                                </Button>
+                              </div>
+                            </div>
+                          ) : (
+                            <button 
+                              onClick={(e) => { 
+                                e.stopPropagation(); 
+                                setEditingDates(prev => ({ ...prev, [c.id]: new Date(c.nextCallDate).toISOString().split('T')[0] }))
+                              }}
+                              className="text-[10px] text-orange-500 font-bold hover:text-orange-600 hover:underline transition-all cursor-pointer"
+                              title="Tarih düzenlemek için tıklayın"
+                            >
+                              {new Date(c.nextCallDate).toLocaleDateString('tr-TR')}
+                            </button>
+                          )}
+                        </div>
+                      )}
                     </TableCell>
                   </TableRow>
                 )
@@ -881,6 +985,27 @@ export default function MusterilerPage() {
               <div className="col-span-1 sm:col-span-2 space-y-2">
                 <Label>Notlar</Label>
                 <Input value={editForm.notes} onChange={e => setEditForm({...editForm, notes: e.target.value})} />
+              </div>
+
+              <div className="space-y-2 border-t pt-2">
+                <Label>Bir Sonraki Arama Tarihi</Label>
+                <Input 
+                  type="date" 
+                  value={editForm.nextCallDate} 
+                  onChange={e => setEditForm({...editForm, nextCallDate: e.target.value, followUpStatus: e.target.value ? 'BEKLIYOR' : editForm.followUpStatus})} 
+                />
+              </div>
+
+              <div className="space-y-2 border-t pt-2">
+                <Label>Takip Durumu</Label>
+                <select 
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+                  value={editForm.followUpStatus}
+                  onChange={e => setEditForm({...editForm, followUpStatus: e.target.value})}
+                >
+                  <option value="BEKLIYOR">Bekliyor (Aranacak)</option>
+                  <option value="ARANDI">Arandı (Tamamlandı)</option>
+                </select>
               </div>
 
               {(session?.user as any)?.role === 'ADMIN' && (
