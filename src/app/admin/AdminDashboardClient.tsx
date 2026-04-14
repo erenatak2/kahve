@@ -66,17 +66,28 @@ export default function AdminDashboardClient({ initialData, session }: AdminDash
     { title: isSalesRep ? 'Kendi Siparişlerim' : 'Toplam Sipariş', value: stats.totalOrders || 0, icon: ShoppingCart, color: 'text-blue-600', bg: 'bg-blue-50' },
     { title: isSalesRep ? 'Kendi Cirom' : 'Toplam Ciro', value: formatCurrency(stats.totalRevenue || 0), icon: TrendingUp, color: 'text-green-600', bg: 'bg-green-50' },
     { title: isSalesRep ? 'Benim Müşterilerim' : 'Aktif Müşteri', value: stats.totalCustomers || 0, icon: Users, color: 'text-purple-600', bg: 'bg-purple-50' },
-    { 
-      title: totalPendingDebt > 0 ? (isSalesRep ? 'Müşterilerimin Borcu' : `Alacaklar${overdueCount > 0 ? ` (${overdueCount} gecikmiş)` : ''}`) : 'Ürün Sayısı', 
-      value: totalPendingDebt > 0 ? formatCurrency(totalPendingDebt) : stats.totalProducts || 0, 
-      icon: totalPendingDebt > 0 ? CreditCard : Package, 
-      color: totalPendingDebt > 0 ? 'text-red-600' : 'text-orange-600', 
-      bg: totalPendingDebt > 0 ? 'bg-red-50' : 'bg-orange-50' 
+    {
+      title: totalPendingDebt > 0 ? (isSalesRep ? 'Müşterilerimin Borcu' : `Alacaklar${overdueCount > 0 ? ` (${overdueCount} gecikmiş)` : ''}`) : 'Ürün Sayısı',
+      value: totalPendingDebt > 0 ? formatCurrency(totalPendingDebt) : stats.totalProducts || 0,
+      icon: totalPendingDebt > 0 ? CreditCard : Package,
+      color: totalPendingDebt > 0 ? 'text-red-600' : 'text-orange-600',
+      bg: totalPendingDebt > 0 ? 'bg-red-50' : 'bg-orange-50'
     },
   ]
 
   return (
     <div className="p-4 md:p-6 space-y-4 md:space-y-6">
+      {pendingCalls.length > 0 && (
+        <div className="bg-orange-600 text-white py-2 overflow-hidden whitespace-nowrap relative rounded-xl shadow-lg border-2 border-orange-400">
+          <div className="inline-block animate-marquee group-hover:pause italic font-bold">
+            📢 Dikkat! Bugün tamamlamanız gereken {pendingCalls.length} adet arama bulunuyor. Müşterilerinize geri dönüş yapmayı unutmayın! — &nbsp;
+          </div>
+          <div className="inline-block animate-marquee group-hover:pause italic font-bold">
+            📢 Dikkat! Bugün tamamlamanız gereken {pendingCalls.length} adet arama bulunuyor. Müşterilerinize geri dönüş yapmayı unutmayın! — &nbsp;
+          </div>
+        </div>
+      )}
+
       <div>
         <h1 className="text-xl md:text-2xl font-bold text-gray-900">
           {isSalesRep ? `Hoş Geldin, ${session?.user?.name}` : 'Gösterge Paneli'}
@@ -128,8 +139,8 @@ export default function AdminDashboardClient({ initialData, session }: AdminDash
           </CardHeader>
           <CardContent className="space-y-2">
             {pendingCalls.slice(0, 5).map((item: any) => (
-              <div 
-                key={item.id} 
+              <div
+                key={item.id}
                 className={`flex items-center justify-between p-3 rounded-xl border bg-white shadow-sm gap-3 ${isLate(item.date) ? 'border-red-200' : 'border-orange-100'}`}
               >
                 <div className="flex items-center gap-3 min-w-0">
