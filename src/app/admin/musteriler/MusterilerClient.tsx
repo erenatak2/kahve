@@ -27,6 +27,7 @@ export default function MusterilerClient({ initialCustomers, initialProducts, in
   const [isFetching, setIsFetching] = useState(false)
   const [hasFetched, setHasFetched] = useState(true) // Start with true since we have initial data
   const [search, setSearch] = useState('')
+  const [selectedSegment, setSelectedSegment] = useState<string>('ALL')
   const [showAddDialog, setShowAddDialog] = useState(false)
   const [showEditDialog, setShowEditDialog] = useState(false)
   const [showPriceDialog, setShowPriceDialog] = useState(false)
@@ -321,10 +322,35 @@ export default function MusterilerClient({ initialCustomers, initialProducts, in
     }
   }
 
+  const getCustomerRank = (c: any) => {
+    const orders = c.orders || []
+    if (orders.length === 0) return { label: 'Pasif', color: 'bg-slate-100 text-slate-600', code: 'PASSIVE' }
+    
+    const totalRevenue = orders.reduce((sum: number, o: any) => sum + o.totalAmount, 0)
+    let avgDays = c.avgOrderDays || 30
+    
+    if (orders.length >= 2) {
+      const firstOrder = new Date(orders[orders.length -1].createdAt).getTime()
+      const lastOrder = new Date(orders[0].createdAt).getTime()
+      const totalDays = (lastOrder - firstOrder) / (1000 * 60 * 60 * 24)
+      avgDays = totalDays / (orders.length - 1)
+      if (avgDays < 1) avgDays = 1
+    }
+
+    const lastOrderDate = new Date(orders[0].createdAt).getTime()
+    const daysSinceLastOrder = (new Date().getTime() - lastOrderDate) / (1000 * 60 * 60 * 24)
+
+    if (daysSinceLastOrder > avgDays * 2) return { label: 'Pasif', color: 'bg-red-50 text-red-600 border-red-100', code: 'PASSIVE' }
+    if (daysSinceLastOrder > avgDays * 1.25) return { label: 'Riskli', color: 'bg-orange-50 text-orange-600 border-orange-100', code: 'AT_RISK' }
+    if (totalRevenue > 50000 || (orders.length > 10 && daysSinceLastOrder < avgDays)) return { label: 'VIP', color: 'bg-purple-50 text-purple-600 border-purple-100', code: 'VIP' }
+    return { label: 'Düzenli', color: 'bg-green-50 text-green-600 border-green-100', code: 'REGULAR' }
+  }
+
   const filtered = customers.filter((c: any) => {
     const searchMatch = 
       c.user?.name?.toLowerCase().includes(search.toLowerCase()) ||
-      c.user?.email?.toLowerCase().includes(search.toLowerCase())
+      c.user?.email?.toLowerCase().includes(search.toLowerCase()) ||
+      c.businessName?.toLowerCase().includes(search.toLowerCase())
     
     const userRole = (session?.user as any)?.role
     const userId = (session?.user as any)?.id
@@ -332,6 +358,12 @@ export default function MusterilerClient({ initialCustomers, initialProducts, in
     const isUnassigned = !c.salesRepId
     const isAdmin = userRole === 'ADMIN'
     const showCustomer = isAdmin ? (isMyCustomer || isUnassigned) : isMyCustomer
+
+    if (selectedSegment !== 'ALL') {
+        const rank = getCustomerRank(c)
+        if (rank.code !== selectedSegment) return false
+    }
+
     return searchMatch && showCustomer
   })
 
@@ -344,7 +376,20 @@ export default function MusterilerClient({ initialCustomers, initialProducts, in
             <p className="text-gray-500 text-sm">{customers.length} müşteri kayıtlı</p>
           </div>
         </div>
-        <Button onClick={() => setShowAddDialog(true)}><Plus className="mr-2 h-4 w-4" />Yeni Müşteri</Button>
+        <div className="flex gap-2">
+            <select 
+                className="h-10 rounded-lg border-gray-100 bg-white px-3 text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500/20 transition-all cursor-pointer border shadow-sm"
+                value={selectedSegment}
+                onChange={(e) => setSelectedSegment(e.target.value)}
+            >
+                <option value="ALL">Tüm Segmentler</option>
+                <option value="VIP">💎 VIP Müşteriler</option>
+                <option value="REGULAR">✅ Düzenli Müşteriler</option>
+                <option value="AT_RISK">⚠️ Riskli Müşteriler</option>
+                <option value="PASSIVE">💤 Pasif Müşteriler</option>
+            </select>
+            <Button onClick={() => setShowAddDialog(true)}><Plus className="mr-2 h-4 w-4" />Yeni Müşteri</Button>
+        </div>
       </div>
 
       <div className="relative">
@@ -377,17 +422,24 @@ export default function MusterilerClient({ initialCustomers, initialProducts, in
                 const totalCiro = c.orders?.reduce((sum: number, o: any) => sum + o.totalAmount, 0) || 0
                 const totalPending = c.orders?.reduce((sum: number, o: any) => sum + (o.payments?.filter((p: any) => p.status === 'BEKLIYOR' || p.status === 'GECIKTI').reduce((s: number, p: any) => s + p.amount, 0) || 0), 0) || 0
                 const specialPriceCount = c._count?.customerPrices || 0
+                const rank = getCustomerRank(c)
                 return (
                   <TableRow key={c.id}>
                     <TableCell>
-                      <div>
-                        <p className="font-medium flex items-center gap-1.5 line-clamp-1">
-                          {c.businessName || c.user?.name}
-                          {c.businessName && <span className="text-[10px] text-gray-400 font-normal">({c.user?.name})</span>}
-                          {!c.salesRep && (session?.user as any)?.role === 'ADMIN' && (
-                            <div className="flex items-center gap-1 ml-2" onClick={e => e.stopPropagation()}>
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-2">
+                            <span className={cn("text-[9px] font-black px-1.5 py-0.5 rounded border uppercase tracking-tighter shrink-0", rank.color)}>
+                                {rank.label}
+                            </span>
+                            <p className="font-bold text-slate-900 flex items-center gap-1.5 line-clamp-1">
+                                {c.businessName || c.user?.name}
+                                {c.businessName && <span className="text-[10px] text-gray-400 font-normal italic">({c.user?.name})</span>}
+                            </p>
+                        </div>
+                        {!c.salesRep && (session?.user as any)?.role === 'ADMIN' && (
+                            <div className="flex items-center gap-1 mt-0.5" onClick={e => e.stopPropagation()}>
                               <select 
-                                className="text-xs h-7 rounded-lg border-gray-300 bg-white px-2 focus:ring-2 focus:ring-blue-500 shadow-sm transition-all outline-none font-medium text-gray-700 hover:border-gray-400 cursor-pointer"
+                                className="text-[10px] h-6 rounded border-gray-300 bg-white px-1.5 focus:ring-1 focus:ring-blue-500 shadow-sm outline-none font-bold text-gray-600 hover:border-gray-400 cursor-pointer"
                                 onChange={(e) => setPendingAssignments(prev => ({ ...prev, [c.id]: e.target.value }))}
                                 value={pendingAssignments[c.id] || ""}
                               >
@@ -399,15 +451,14 @@ export default function MusterilerClient({ initialCustomers, initialProducts, in
                               {pendingAssignments[c.id] && (
                                 <Button 
                                   size="sm" 
-                                  className="h-7 w-7 p-0 bg-green-500 hover:bg-green-600 text-white shadow-sm" 
+                                  className="h-6 w-6 p-0 bg-green-500 hover:bg-green-600 text-white shadow-sm" 
                                   onClick={() => handleQuickAssign(c.id, pendingAssignments[c.id])}
                                 >
-                                  <Check className="h-4 w-4" />
+                                  <Check className="h-3 w-3" />
                                 </Button>
                               )}
                             </div>
                           )}
-                        </p>
                         <p className="text-xs text-gray-500 md:hidden">{c.user?.email}</p>
                         <div className="flex gap-2 mt-1 lg:hidden">
                           <span className="text-xs text-gray-500">{c.orders?.length || 0} sip.</span>

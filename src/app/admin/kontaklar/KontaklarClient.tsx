@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/components/ui/use-toast'
 import { Search, UserPlus, Phone, Mail, Building2, Calendar, MoreVertical, Edit, Trash2, Info, MessageSquare } from 'lucide-react'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog'
 import { format } from 'date-fns'
 import { tr } from 'date-fns/locale'
 
@@ -33,12 +33,14 @@ export default function KontaklarClient({ initialContacts, customers, session }:
     email: '',
     notes: '',
     customerId: '',
+    companyName: '',
     reminderAt: ''
   })
 
   const filteredContacts = contacts.filter((c: any) => 
     c.name.toLowerCase().includes(search.toLowerCase()) ||
     c.customer?.businessName?.toLowerCase().includes(search.toLowerCase()) ||
+    c.companyName?.toLowerCase().includes(search.toLowerCase()) ||
     c.customer?.user?.name?.toLowerCase().includes(search.toLowerCase()) ||
     c.title?.toLowerCase().includes(search.toLowerCase())
   )
@@ -52,6 +54,7 @@ export default function KontaklarClient({ initialContacts, customers, session }:
       email: '',
       notes: '',
       customerId: '',
+      companyName: '',
       reminderAt: ''
     })
     setIsDialogOpen(true)
@@ -65,7 +68,8 @@ export default function KontaklarClient({ initialContacts, customers, session }:
       phone: contact.phone || '',
       email: contact.email || '',
       notes: contact.notes || '',
-      customerId: contact.customerId || '',
+      customerId: contact.customerId || (contact.companyName ? 'MANUAL' : ''),
+      companyName: contact.companyName || '',
       reminderAt: contact.reminderAt ? format(new Date(contact.reminderAt), "yyyy-MM-dd'T'HH:mm") : ''
     })
     setIsDialogOpen(true)
@@ -104,29 +108,40 @@ export default function KontaklarClient({ initialContacts, customers, session }:
     const url = editingContact ? `/api/admin/kontaklar/${editingContact.id}` : '/api/admin/kontaklar'
     const method = editingContact ? 'PUT' : 'POST'
 
+    const body = {
+      ...formData,
+      customerId: formData.customerId === 'MANUAL' ? null : formData.customerId
+    }
+
     try {
       const res = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(body)
       })
 
       if (res.ok) {
         const result = await res.json()
+        
+        // State'i anında güncelle (UI'da bekletme yapma)
         if (editingContact) {
-          setContacts(contacts.map((c: any) => c.id === result.id ? { ...result, customer: customers.find(cust => cust.id === formData.customerId) } : c))
-          toast({ title: 'Güncellendi', description: 'Kontak bilgileri başarıyla güncellendi.' })
+          setContacts(prev => prev.map((c: any) => c.id === result.id ? result : c))
+          toast({ title: 'Güncellendi' })
         } else {
-          setContacts([result, ...contacts])
-          toast({ title: 'Eklendi', description: 'Yeni kontak başarıyla oluşturuldu.' })
+          setContacts(prev => [result, ...prev])
+          toast({ title: 'Eklendi' })
         }
+        
+        // Pencereyi beklemeden kapat
         setIsDialogOpen(false)
-        // Listeyi tam olarak yenilemek için opsiyonel: window.location.reload()
       } else {
-        toast({ title: 'Hata', variant: 'destructive', description: 'İşlem sırasında bir hata oluştu.' })
+        const errorData = await res.json().catch(() => ({}))
+        console.error('Sunucu Hatası Detayı:', errorData)
+        toast({ title: 'Hata', variant: 'destructive', description: errorData.error || 'İşlem başarısız.' })
       }
     } catch (error) {
-      toast({ title: 'Hata', variant: 'destructive', description: 'Bağlantı hatası oluştu.' })
+      console.error('Bağlantı Hatası:', error)
+      toast({ title: 'Bağlantı Hatası', variant: 'destructive' })
     } finally {
       setLoading(false)
     }
@@ -212,7 +227,7 @@ export default function KontaklarClient({ initialContacts, customers, session }:
                 <div className="space-y-2.5 pt-2">
                   <div className="flex items-center gap-2.5 text-sm font-bold text-slate-700">
                     <Building2 className="h-4 w-4 text-blue-500" />
-                    <span className="truncate">{contact.customer?.businessName || contact.customer?.user?.name || 'BAĞLI FİRMA YOK'}</span>
+                    <span className="truncate">{contact.customer?.businessName || contact.companyName || 'BAĞLI FİRMA YOK'}</span>
                   </div>
                   <div className="flex items-center gap-2.5 text-sm font-bold text-slate-600">
                     <Phone className="h-4 w-4 text-slate-400" />
@@ -257,9 +272,9 @@ export default function KontaklarClient({ initialContacts, customers, session }:
               <DialogTitle className="text-2xl font-black uppercase tracking-tight">
                 {editingContact ? 'Kişi Bilgilerini Düzenle' : 'Yeni Kontak Ekle'}
               </DialogTitle>
-              <p className="text-blue-100 text-sm font-medium mt-1">
+              <DialogDescription className="text-blue-100 text-sm font-medium mt-1">
                 {editingContact ? 'Mevcut kontak bilgilerini güncelleyin' : 'Lütfen tüm gerekli alanları doldurun'}
-              </p>
+              </DialogDescription>
             </DialogHeader>
           </div>
           <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-5 bg-white custom-scrollbar">
@@ -277,14 +292,28 @@ export default function KontaklarClient({ initialContacts, customers, session }:
                 <select 
                   className="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                   value={formData.customerId}
-                  onChange={e => setFormData({ ...formData, customerId: e.target.value })}
+                  onChange={e => setFormData({ ...formData, customerId: e.target.value, companyName: e.target.value !== 'MANUAL' ? '' : formData.companyName })}
                 >
-                  <option value="">Firma Seçin...</option>
-                  {customers.map((c: any) => (
+                  <option value="">Firma Seçin (Mevcut Müşteri)...</option>
+                  <option value="MANUAL" className="text-blue-600 font-black">➕ DİĞER / MANUEL GİRİŞ</option>
+                  {Array.isArray(customers) && customers.map((c: any) => (
                     <option key={c.id} value={c.id}>{c.businessName || c.user?.name}</option>
                   ))}
                 </select>
               </div>
+
+              {formData.customerId === 'MANUAL' && (
+                <div className="space-y-2 col-span-2 bg-blue-50 p-4 rounded-2xl border border-blue-100 animate-in fade-in slide-in-from-top-2">
+                    <Label className="text-xs font-black text-blue-600 uppercase tracking-wider ml-1">MANUEL FİRMA ADI *</Label>
+                    <Input 
+                        required 
+                        placeholder="Müşterimiz olmayan firmanın adını yazın..." 
+                        value={formData.companyName} 
+                        onChange={e => setFormData({ ...formData, companyName: e.target.value })} 
+                        className="h-11 rounded-xl border-blue-200 font-bold bg-white" 
+                    />
+                </div>
+              )}
               <div className="space-y-2">
                 <Label className="text-xs font-black text-slate-500 uppercase tracking-wider ml-1">TELEFON</Label>
                 <div className="flex gap-2">
@@ -320,7 +349,7 @@ export default function KontaklarClient({ initialContacts, customers, session }:
             <DialogFooter className="gap-2 sm:gap-0">
               <Button type="button" variant="ghost" onClick={() => setIsDialogOpen(false)} className="h-12 font-bold px-8">Vazgeç</Button>
               <Button onClick={(e: any) => handleSubmit(e)} disabled={loading} className="h-12 bg-blue-600 hover:bg-blue-700 text-white font-black px-10 rounded-2xl shadow-lg shadow-blue-100 uppercase tracking-widest transition-all active:scale-95 flex-1">
-                {loading ? 'YÜKLENİYOR...' : (editingContact ? 'GÜNCELLE' : 'KAYDET')}
+                {editingContact ? 'GÜNCELLE' : 'KAYDET'}
               </Button>
             </DialogFooter>
           </div>
@@ -336,9 +365,9 @@ export default function KontaklarClient({ initialContacts, customers, session }:
             </div>
             <DialogHeader>
               <DialogTitle className="text-xl font-black text-slate-900 uppercase tracking-tight">Kişiyi Sil</DialogTitle>
-              <p className="text-slate-500 text-sm font-medium mt-2">
+              <DialogDescription className="text-slate-500 text-sm font-medium mt-2">
                 <span className="font-black text-red-600">{deleteConfirm?.name}</span> adlı kişiyi silmek istediğinize emin misiniz? Bu işlem geri alınamaz.
-              </p>
+              </DialogDescription>
             </DialogHeader>
           </div>
           <DialogFooter className="p-4 bg-white flex gap-2 sm:gap-0">

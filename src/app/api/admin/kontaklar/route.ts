@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { name, title, phone, email, notes, customerId, reminderAt } = await req.json()
+    const { name, title, phone, email, notes, customerId, companyName, reminderAt } = await req.json()
 
     if (!name) {
       return NextResponse.json({ error: 'Kişi adı zorunludur' }, { status: 400 })
@@ -59,7 +59,8 @@ export async function POST(req: NextRequest) {
         phone,
         email,
         notes,
-        customerId,
+        customerId: customerId || null,
+        companyName,
         reminderAt: reminderAt ? new Date(reminderAt) : null,
       },
       include: {

@@ -106,10 +106,9 @@ async function getDashboardData(session: any) {
     take: 10
   })
 
-  // Akıllı Analiz: Kahvesi Bitmek Üzere Olanlar (Riskli Müşteriler)
-  const customersWithFreq = await prisma.customer.findMany({
+  // 10. Akıllı Analiz ve Segmentasyon (Risk Yönetimi)
+  const allCustomersWithOrders = await prisma.customer.findMany({
     where: {
-      avgOrderDays: { not: null },
       isActive: true,
       ...(isSalesRep ? { salesRepId: userId } : {})
     },
@@ -118,24 +117,60 @@ async function getDashboardData(session: any) {
       orders: {
         where: { status: { not: 'IPTAL' } },
         orderBy: { createdAt: 'desc' },
-        take: 1
+        select: { createdAt: true, totalAmount: true }
       }
     }
   })
 
-  const atRiskCustomers = customersWithFreq.filter(c => {
-    if (c.orders.length === 0 || !c.avgOrderDays) return false
-    const lastOrderDate = new Date(c.orders[0].createdAt).getTime()
-    const daysSinceLastOrder = (new Date().getTime() - lastOrderDate) / (1000 * 60 * 60 * 24)
-    // Eğer ortalama süreyi %20 aştıysa riskli kabul et
-    return daysSinceLastOrder > (c.avgOrderDays * 1.2)
-  }).map(c => ({
-    id: c.id,
-    name: c.businessName || c.user?.name || '',
-    phone: c.phone || '',
-    avgDays: Math.round(c.avgOrderDays || 0),
-    lastOrderDate: c.orders[0].createdAt
-  }))
+  const nowTime = new Date().getTime()
+  
+  const segments = {
+    vip: [] as any[],
+    regular: [] as any[],
+    atRisk: [] as any[],
+    passive: [] as any[]
+  }
+
+  allCustomersWithOrders.forEach(c => {
+    const orders = c.orders
+    const totalRevenue = orders.reduce((sum, o) => sum + o.totalAmount, 0)
+    
+    let avgDays = c.avgOrderDays || 30 // Varsayılan 30 gün
+    
+    // Eğer 2 veya daha fazla siparişi varsa ortalama süreyi hesapla
+    if (orders.length >= 2) {
+      const firstOrder = new Date(orders[orders.length - 1].createdAt).getTime()
+      const lastOrder = new Date(orders[0].createdAt).getTime()
+      const totalDays = (lastOrder - firstOrder) / (1000 * 60 * 60 * 24)
+      avgDays = totalDays / (orders.length - 1)
+      if (avgDays < 1) avgDays = 1 // Güvenlik sınırı
+    }
+
+    const lastOrderDate = orders.length > 0 ? new Date(orders[0].createdAt).getTime() : 0
+    const daysSinceLastOrder = lastOrderDate > 0 ? (nowTime - lastOrderDate) / (1000 * 60 * 60 * 24) : 999
+    
+    const customerData = {
+      id: c.id,
+      name: c.businessName || c.user?.name || '',
+      phone: c.phone || '',
+      avgDays: Math.round(avgDays),
+      daysSinceLastOrder: Math.round(daysSinceLastOrder),
+      totalRevenue,
+      orderCount: orders.length
+    }
+
+    if (orders.length === 0) {
+      segments.passive.push(customerData)
+    } else if (daysSinceLastOrder > avgDays * 2) {
+      segments.passive.push(customerData)
+    } else if (daysSinceLastOrder > avgDays * 1.25) {
+      segments.atRisk.push(customerData)
+    } else if (totalRevenue > 50000 || (orders.length > 10 && daysSinceLastOrder < avgDays)) {
+      segments.vip.push(customerData)
+    } else {
+      segments.regular.push(customerData)
+    }
+  })
 
   // Mevcut bölgeleri getir (Filtre için)
   const regions = await prisma.customer.findMany({
@@ -154,7 +189,7 @@ async function getDashboardData(session: any) {
     recentOrders,
     pendingPayments,
     reminders,
-    atRiskCustomers,
+    segments,
     regions: regions.map(r => r.region).filter(Boolean),
     todayCalls: [
       ...todayCalls.map(c => ({

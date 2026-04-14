@@ -220,7 +220,8 @@ model Contact {
   phone       String?
   email       String?
   notes       String?  // "Nereden taniyorum, niye arayacagim" gibi notlar
-  customerId  String?  // Bagli oldugu firma
+  customerId  String?  // Bagli oldugu firma (Musteri kaydi varsa)
+  companyName String?  // Bagli oldugu firma (Musteri kaydi yoksa manuel giris)
   isActive    Boolean  @default(true)
   
   reminderAt  DateTime? // Hatirlatici tarihi

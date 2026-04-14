@@ -19,13 +19,14 @@ const WHATSAPP_TEMPLATES = [
 ]
 
 export default function AdminDashboardClient({ initialData, session }: AdminDashboardClientProps) {
-  const { stats, recentOrders, pendingPayments, reminders, todayCalls, atRiskCustomers } = initialData
+  const { stats, recentOrders, pendingPayments, reminders, todayCalls, segments } = initialData
   const isSalesRep = (session?.user as any)?.role === 'SATICI'
   const { toast } = useToast()
 
   const [completedIds, setCompletedIds] = useState<Set<string>>(new Set())
   const [whatsappMenu, setWhatsappMenu] = useState<string | null>(null)
   const [notificationsEnabled, setNotificationsEnabled] = useState(false)
+  const [schedulingCall, setSchedulingCall] = useState<string | null>(null)
   
   const audioRef = useRef<HTMLAudioElement | null>(null)
 
@@ -283,26 +284,76 @@ export default function AdminDashboardClient({ initialData, session }: AdminDash
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="space-y-4">
-            {atRiskCustomers.length > 0 && (
-                <Card className="border-red-200 bg-red-50/30">
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-base text-red-800 flex items-center gap-2">
-                            <AlertCircle className="h-4 w-4" />
-                            ⚠️ Kahvesi Bitmek Üzere ({atRiskCustomers.length})
+            {segments && (
+                <Card className="border-slate-200">
+                    <CardHeader className="pb-2 border-b mb-3 px-4">
+                        <CardTitle className="text-base text-slate-800 flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <TrendingUp className="h-4 w-4 text-blue-600" />
+                                Müşteri Portföy Sağlığı
+                            </div>
+                            <span className="text-[10px] font-bold text-slate-400">OTOMATİK ANALİZ</span>
                         </CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-2">
-                        {atRiskCustomers.slice(0, 4).map((c: any) => (
-                            <div key={c.id} className="bg-white p-2.5 rounded-lg border border-red-100 flex items-center justify-between shadow-sm">
-                                <div>
-                                    <p className="text-xs font-bold text-gray-900">{c.name}</p>
-                                    <p className="text-[10px] text-gray-500">Ort. {c.avgDays} günde bir alıyor</p>
-                                </div>
-                                <div className="flex items-center gap-1.5 text-[10px] font-black p-1 px-2 rounded-full bg-red-100 text-red-700">
-                                   KRİTİK
-                                </div>
+                    <CardContent className="space-y-4 px-4 pb-4">
+                        <div className="grid grid-cols-4 gap-2">
+                            <div className="bg-purple-50 p-2 rounded-lg text-center">
+                                <p className="text-[10px] font-bold text-purple-600 uppercase">VIP</p>
+                                <p className="text-xl font-black text-purple-900">{segments.vip.length}</p>
                             </div>
-                        ))}
+                            <div className="bg-green-50 p-2 rounded-lg text-center">
+                                <p className="text-[10px] font-bold text-green-600 uppercase">DÜZENLİ</p>
+                                <p className="text-xl font-black text-green-900">{segments.regular.length}</p>
+                            </div>
+                            <div className="bg-orange-50 p-2 rounded-lg text-center">
+                                <p className="text-[10px] font-bold text-orange-600 uppercase">RİSKLİ</p>
+                                <p className="text-xl font-black text-orange-900">{segments.atRisk.length}</p>
+                            </div>
+                            <div className="bg-red-50 p-2 rounded-lg text-center">
+                                <p className="text-[10px] font-bold text-red-600 uppercase">PASİF</p>
+                                <p className="text-xl font-black text-red-900">{segments.passive.length}</p>
+                            </div>
+                        </div>
+
+                        {segments.atRisk.length > 0 && (
+                            <div className="space-y-2">
+                                <p className="text-[10px] font-black text-orange-600 uppercase tracking-widest flex items-center gap-1">
+                                    <AlertCircle className="h-3 w-3" /> KRİTİK TAKİP LİSTESİ
+                                </p>
+                                {segments.atRisk.slice(0, 3).map((c: any) => (
+                                    <div key={c.id} className="bg-white p-2.5 rounded-xl border border-orange-100 flex items-center justify-between shadow-sm hover:border-orange-300 transition-colors group">
+                                        <div className="min-w-0">
+                                            <p className="text-sm font-bold text-slate-900 truncate">{c.name}</p>
+                                            <p className="text-[11px] text-slate-500 font-medium italic">Son siparişten {c.daysSinceLastOrder} gün geçti (Ort. {c.avgDays})</p>
+                                        </div>
+                                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <Button 
+                                                variant="outline" 
+                                                size="sm" 
+                                                className="h-8 text-[10px] font-bold border-orange-200 text-orange-700 hover:bg-orange-50"
+                                                onClick={async () => {
+                                                    setSchedulingCall(c.id)
+                                                    const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1)
+                                                    const res = await fetch('/api/admin/takip', {
+                                                        method: 'PUT',
+                                                        headers: { 'Content-Type': 'application/json' },
+                                                        body: JSON.stringify({ customerId: c.id, date: tomorrow.toISOString().split('T')[0] })
+                                                    })
+                                                    if (res.ok) toast({ title: 'Arama Planlandı', description: `${c.name} için yarına arama randevusu oluşturuldu.` })
+                                                    setSchedulingCall(null)
+                                                }}
+                                                disabled={schedulingCall === c.id}
+                                            >
+                                                YARIN ARA
+                                            </Button>
+                                        </div>
+                                    </div>
+                                ))}
+                                {segments.atRisk.length > 3 && (
+                                    <p className="text-center text-[10px] font-bold text-slate-400">+{segments.atRisk.length - 3} daha riskli müşteri var</p>
+                                )}
+                            </div>
+                        )}
                     </CardContent>
                 </Card>
             )}

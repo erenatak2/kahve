@@ -12,7 +12,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   }
 
   try {
-    const { name, title, phone, email, notes, customerId, reminderAt } = await req.json()
+    const { name, title, phone, email, notes, customerId, companyName, reminderAt } = await req.json()
 
     const contact = await prisma.contact.update({
       where: { id: params.id },
@@ -22,7 +22,8 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
         phone,
         email,
         notes,
-        customerId,
+        customerId: customerId || null,
+        companyName,
         reminderAt: reminderAt ? new Date(reminderAt) : null,
       },
     })

@@ -22,6 +22,7 @@ import {
   Volume2,
   ShieldAlert,
   Phone,
+  Contact,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import ReminderList from './ReminderList'
@@ -38,9 +39,9 @@ const navItems: NavItem[] = [
   { href: '/admin/urunler', label: 'Ürünler', icon: Package },
   { href: '/admin/musteriler', label: 'Müşteriler', icon: Users, badgeKey: 'customers' },
   { href: '/admin/siparisler', label: 'Siparişler', icon: ShoppingCart, badgeKey: 'orders' },
-  { href: '/admin/kontaklar', label: 'Kontaklar', icon: Phone },
   { href: '/admin/tahsilat', label: 'Tahsilat', icon: CreditCard },
   { href: '/admin/takip', label: 'Aranacaklar', icon: Phone, badgeKey: 'reminders' },
+  { href: '/admin/kontaklar', label: 'Kontaklar', icon: Contact },
   { href: '/admin/odeme-bildirimler', label: 'Ödeme Bildirimleri', icon: Bell, badgeKey: 'notifications' },
   { href: '/admin/cari-hesaplar', label: 'Cari Hesaplar', icon: FileText },
   { href: '/admin/raporlar', label: 'Raporlar', icon: BarChart3 },
