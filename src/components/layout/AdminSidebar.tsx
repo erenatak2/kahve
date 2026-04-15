@@ -107,14 +107,18 @@ export function AdminSidebar({ user, onClose }: { user: { name?: string; email?:
   const prevCounts = useRef<BadgeCounts>({ orders: 0, notifications: 0, customers: 0, reminders: 0 })
   const soundEnabledRef = useRef(true)
   
-  // LocalStorage'dan görülen sayıları yükle
+  // LocalStorage'dan görülen ve toplam sayıları yükle
   useEffect(() => {
-    const saved = localStorage.getItem('seenCounts')
-    if (saved) {
-      setSeenCounts(JSON.parse(saved))
-    } else {
-      // İlk kez açılıyorsa veya storage boşsa, o anki sayıları 'görüldü' kabul et
-      // Bu işlem counts geldiğinde yapılacak
+    const savedSeen = localStorage.getItem('seenCounts')
+    if (savedSeen) {
+      setSeenCounts(JSON.parse(savedSeen))
+    }
+
+    const savedCounts = localStorage.getItem('badgeCounts')
+    if (savedCounts) {
+      const parsedCounts = JSON.parse(savedCounts)
+      setCounts(parsedCounts)
+      prevCounts.current = parsedCounts
     }
   }, [])
 
@@ -214,6 +218,7 @@ export function AdminSidebar({ user, onClose }: { user: { name?: string; email?:
                 
                 prevCounts.current = data
                 setCounts(data)
+                localStorage.setItem('badgeCounts', JSON.stringify(data))
               } catch (e) {
                 console.error('Parse error:', e)
               }
