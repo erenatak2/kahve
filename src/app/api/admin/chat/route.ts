@@ -82,8 +82,8 @@ export async function POST(req: NextRequest) {
 
     // Gemini Başlatma
     const genAI = new GoogleGenerativeAI(apiKey)
-    // Orijinal modele (gemini-1.5-flash) geri dönüyoruz, çünkü artık geçerli bir anahtarımız var
-    const geminiModel = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
+    // Orijinal modele (gemini-1.5-flash) deprecate olduğu için gemini-2.5-flash'a geçiyoruz
+    const geminiModel = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' })
 
     const chat = geminiModel.startChat({
       history: [
