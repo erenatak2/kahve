@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { signOut } from 'next-auth/react'
 import { cn } from '@/lib/utils'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, memo, startTransition, useCallback } from 'react'
 import {
   LayoutDashboard,
   Package,
@@ -25,7 +25,6 @@ import {
   Contact,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import ReminderList from './ReminderList'
 
 interface NavItem {
   href: string
@@ -64,40 +63,71 @@ const playNotificationSound = () => {
     if (!AudioContextClass) return
 
     const audioContext = new AudioContextClass()
-    
-    // Tarayıcı politikası gereği AudioContext bazen 'suspended' başlar.
-    // Kullanıcı etkileşimi olmadan ses çalınamaz.
-    if (audioContext.state === 'suspended') {
-      return // Bu durumda sessizce çıkıyoruz, bir sonraki etkileşimde veya bildirimde düzelebilir.
-    }
+    if (audioContext.state === 'suspended') return
 
     const oscillator = audioContext.createOscillator()
     const gainNode = audioContext.createGain()
-    
     oscillator.connect(gainNode)
     gainNode.connect(audioContext.destination)
-    
-    // Ding sesi ayarları
-    oscillator.frequency.setValueAtTime(880, audioContext.currentTime) // A5 notası
+    oscillator.frequency.setValueAtTime(880, audioContext.currentTime)
     oscillator.frequency.exponentialRampToValueAtTime(440, audioContext.currentTime + 0.5)
-    
     gainNode.gain.setValueAtTime(0.3, audioContext.currentTime)
     gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5)
-    
     oscillator.start(audioContext.currentTime)
     oscillator.stop(audioContext.currentTime + 0.5)
-    
-    // Context'i temizle
-    setTimeout(() => {
-      audioContext.close().catch(() => {})
-    }, 1000)
+    setTimeout(() => { audioContext.close().catch(() => {}) }, 1000)
   } catch (error) {
-    // Autoplay hatalarını konsolu kirletmemesi için yutuyoruz
-    if ((error as any).name !== 'NotAllowedError') {
-      console.warn('Ses çalınamadı:', error)
-    }
+    if ((error as any).name !== 'NotAllowedError') console.warn('Ses çalınamadı:', error)
   }
 }
+
+// Memoized individual link component to prevent unnecessary sidebar re-renders
+const SidebarLink = memo(({ 
+  item, 
+  pathname, 
+  pendingHref, 
+  badgeCount, 
+  onNavigate 
+}: { 
+  item: NavItem; 
+  pathname: string; 
+  pendingHref: string | null; 
+  badgeCount: number;
+  onNavigate: (href: string) => void;
+}) => {
+  const Icon = item.icon
+  const isActive = (pendingHref || pathname) === item.href
+  const formatBadge = (count: number) => {
+    if (count > 99) return '99+'
+    return count.toString()
+  }
+
+  return (
+    <Link
+      href={item.href}
+      prefetch={true}
+      onPointerDown={() => onNavigate(item.href)}
+      className={cn(
+        'flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 active:scale-[0.98]',
+        isActive
+          ? 'bg-blue-50 text-blue-700 shadow-sm'
+          : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 border border-transparent hover:border-gray-100'
+      )}
+    >
+      <div className="flex items-center gap-3">
+        <Icon className="h-4 w-4" />
+        {item.label}
+      </div>
+      {badgeCount > 0 && (
+        <span className="bg-red-500 text-white text-xs rounded-full h-5 min-w-[20px] px-1.5 flex items-center justify-center font-bold">
+          {formatBadge(badgeCount)}
+        </span>
+      )}
+    </Link>
+  )
+})
+
+SidebarLink.displayName = 'SidebarLink'
 
 export function AdminSidebar({ user, onClose }: { user: { name?: string; email?: string; role?: string }; onClose?: () => void }) {
   const pathname = usePathname()
@@ -107,19 +137,31 @@ export function AdminSidebar({ user, onClose }: { user: { name?: string; email?:
   const prevCounts = useRef<BadgeCounts>({ orders: 0, notifications: 0, customers: 0, reminders: 0 })
   const soundEnabledRef = useRef(true)
   const [pendingHref, setPendingHref] = useState<string | null>(null)
+  const lastClickTime = useRef<number>(0)
   
+  // Navigation handler with throttling
+  const handleNavigate = useCallback((href: string) => {
+    const now = Date.now()
+    if (now - lastClickTime.current < 150) return
+    lastClickTime.current = now
+    
+    startTransition(() => {
+      setPendingHref(href)
+    })
+    
+    if (onClose) {
+      setTimeout(onClose, 50)
+    }
+  }, [onClose])
+
   // Clear pending state when navigated
   useEffect(() => {
     setPendingHref(null)
   }, [pathname])
   
-  // LocalStorage'dan görülen ve toplam sayıları yükle
   useEffect(() => {
     const savedSeen = localStorage.getItem('seenCounts')
-    if (savedSeen) {
-      setSeenCounts(JSON.parse(savedSeen))
-    }
-
+    if (savedSeen) setSeenCounts(JSON.parse(savedSeen))
     const savedCounts = localStorage.getItem('badgeCounts')
     if (savedCounts) {
       const parsedCounts = JSON.parse(savedCounts)
@@ -128,185 +170,82 @@ export function AdminSidebar({ user, onClose }: { user: { name?: string; email?:
     }
   }, [])
 
-  // Sayfa değiştiğinde görülen sayıları güncelle
   useEffect(() => {
     const currentSeen = { ...seenCounts }
     let updated = false
-    
-    if (pathname.startsWith('/admin/siparisler') && counts.orders > seenCounts.orders) {
-      currentSeen.orders = counts.orders
-      updated = true
-    }
-    if (pathname.startsWith('/admin/odeme-bildirimler') && counts.notifications > seenCounts.notifications) {
-      currentSeen.notifications = counts.notifications
-      updated = true
-    }
-    if (pathname.startsWith('/admin/musteriler') && counts.customers > seenCounts.customers) {
-      currentSeen.customers = counts.customers
-      updated = true
-    }
-    if (pathname.startsWith('/admin/takip')) {
-      currentSeen.reminders = counts.reminders
-      updated = true
-    }
-    
-    // 'seenCounts' hiçbir zaman toplam 'counts' değerini aşmamalı (sayı azaldıysa otomatik düşmeli)
+    if (pathname.startsWith('/admin/siparisler') && counts.orders > seenCounts.orders) { currentSeen.orders = counts.orders; updated = true; }
+    if (pathname.startsWith('/admin/odeme-bildirimler') && counts.notifications > seenCounts.notifications) { currentSeen.notifications = counts.notifications; updated = true; }
+    if (pathname.startsWith('/admin/musteriler') && counts.customers > seenCounts.customers) { currentSeen.customers = counts.customers; updated = true; }
+    if (pathname.startsWith('/admin/takip')) { currentSeen.reminders = counts.reminders; updated = true; }
     if (seenCounts.orders > counts.orders) { currentSeen.orders = counts.orders; updated = true; }
     if (seenCounts.notifications > counts.notifications) { currentSeen.notifications = counts.notifications; updated = true; }
     if (seenCounts.customers > counts.customers) { currentSeen.customers = counts.customers; updated = true; }
     if (seenCounts.reminders > counts.reminders) { currentSeen.reminders = counts.reminders; updated = true; }
-
-    if (updated) {
-      setSeenCounts(currentSeen)
-      localStorage.setItem('seenCounts', JSON.stringify(currentSeen))
-    }
+    if (updated) { setSeenCounts(currentSeen); localStorage.setItem('seenCounts', JSON.stringify(currentSeen)); }
   }, [pathname, counts])
   
-  // soundEnabled değiştiğinde ref'i güncelle
-  useEffect(() => {
-    soundEnabledRef.current = soundEnabled
-  }, [soundEnabled])
+  useEffect(() => { soundEnabledRef.current = soundEnabled }, [soundEnabled])
 
   useEffect(() => {
     let abortController = new AbortController()
-    
     const connectStream = async () => {
       try {
-        const response = await fetch('/api/admin/bildirim-stream', {
-          credentials: 'include',
-          signal: abortController.signal
-        })
-        
-        if (!response.ok) {
-          if (response.status === 401) console.error('Yetkisiz erişim')
-          return
-        }
-        
+        const response = await fetch('/api/admin/bildirim-stream', { credentials: 'include', signal: abortController.signal })
+        if (!response.ok) return
         const reader = response.body?.getReader()
         if (!reader) return
-        
         const decoder = new TextDecoder()
         let buffer = ''
-        
         while (true) {
           const { done, value } = await reader.read()
           if (done) break
-          
           buffer += decoder.decode(value, { stream: true })
-          
-          // SSE formatını parse et (data: {...}\n\n)
           const lines = buffer.split('\n\n')
-          buffer = lines.pop() || '' // Tamamlanmamış veriyi tut
-          
+          buffer = lines.pop() || ''
           for (const line of lines) {
             const match = line.match(/^data: (.+)$/m)
             if (match) {
               try {
                 const data: BadgeCounts = JSON.parse(match[1])
-                
-                // İlk yükleme kontrolü: Eğer seenCounts henüz hiç set edilmediyse (0 ise)
-                // Mevcut sayıları seenCounts'a eşitle ki eski her şey 'bildirim' olarak yanmasın
-                const isFirstLoad = !localStorage.getItem('seenCounts')
-                if (isFirstLoad) {
-                  setSeenCounts(data)
-                  localStorage.setItem('seenCounts', JSON.stringify(data))
-                }
-
-                // Ses kontrolü - sayı artışı varsa ve ses açıksa
-                const ordersIncreased = data.orders > prevCounts.current.orders
-                const notificationsIncreased = data.notifications > prevCounts.current.notifications
-                const customersIncreased = data.customers > prevCounts.current.customers
-                const remindersIncreased = data.reminders > prevCounts.current.reminders
-                
-                if ((ordersIncreased || notificationsIncreased || customersIncreased || remindersIncreased) && soundEnabledRef.current) {
+                if (!localStorage.getItem('seenCounts')) { setSeenCounts(data); localStorage.setItem('seenCounts', JSON.stringify(data)); }
+                if ((data.orders > prevCounts.current.orders || data.notifications > prevCounts.current.notifications || data.customers > prevCounts.current.customers || data.reminders > prevCounts.current.reminders) && soundEnabledRef.current) {
                   playNotificationSound()
                 }
-                
-                prevCounts.current = data
-                setCounts(data)
-                localStorage.setItem('badgeCounts', JSON.stringify(data))
-              } catch (e) {
-                console.error('Parse error:', e)
-              }
+                prevCounts.current = data; setCounts(data); localStorage.setItem('badgeCounts', JSON.stringify(data));
+              } catch (e) {}
             }
           }
         }
-      } catch (error: any) {
-        if (error.name !== 'AbortError') {
-          console.error('Stream error:', error)
-        }
-      }
+      } catch (error: any) { if (error.name !== 'AbortError') console.error('Stream error:', error) }
     }
-
     connectStream()
-    
-    return () => {
-      abortController.abort()
-    }
+    return () => { abortController.abort() }
   }, [])
-
-  const formatBadge = (count: number) => {
-    if (count > 99) return '99+'
-    return count.toString()
-  }
 
   return (
     <aside className="w-64 bg-white border-r flex flex-col h-full shadow-sm">
       <div className="p-4 border-b">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="bg-blue-600 text-white p-2 rounded-xl">
-              <ShoppingBag className="h-5 w-5" />
-            </div>
+            <div className="bg-blue-600 text-white p-2 rounded-xl"><ShoppingBag className="h-5 w-5" /></div>
             <div>
               <h1 className="font-bold text-gray-900 text-sm">Satış Yönetim</h1>
               <p className="text-xs text-gray-500">{user?.role === 'SATICI' ? 'Satış Temsilcisi' : 'Admin Paneli'}</p>
             </div>
           </div>
           {onClose && (
-            <button onClick={onClose} className="md:hidden p-1 rounded text-gray-400 hover:text-gray-600">
-              <X className="h-5 w-5" />
-            </button>
+            <button onClick={onClose} className="md:hidden p-1 rounded text-gray-400 hover:text-gray-600"><X className="h-5 w-5" /></button>
           )}
         </div>
       </div>
 
       <nav className="flex-1 p-4 space-y-1">
         {navItems.filter(item => {
-          if (user?.role === 'SATICI') {
-            return ['/admin', '/admin/urunler', '/admin/musteriler', '/admin/kontaklar', '/admin/siparisler', '/admin/profil'].includes(item.href)
-          }
+          if (user?.role === 'SATICI') return ['/admin', '/admin/urunler', '/admin/musteriler', '/admin/kontaklar', '/admin/siparisler', '/admin/profil'].includes(item.href)
           return true
         }).map((item) => {
-          const Icon = item.icon
-          const isActive = (pendingHref || pathname) === item.href
-          
           const badgeCount = item.badgeKey ? Math.max(0, counts[item.badgeKey] - seenCounts[item.badgeKey]) : 0
-          
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              prefetch={true}
-              onPointerDown={() => setPendingHref(item.href)}
-              className={cn(
-                'flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 active:scale-[0.98]',
-                isActive
-                  ? 'bg-blue-50 text-blue-700 shadow-sm'
-                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 border border-transparent hover:border-gray-100'
-              )}
-            >
-              <div className="flex items-center gap-3">
-                <Icon className="h-4 w-4" />
-                {item.label}
-              </div>
-              {badgeCount > 0 && (
-                <span className="bg-red-500 text-white text-xs rounded-full h-5 min-w-[20px] px-1.5 flex items-center justify-center font-bold">
-                  {formatBadge(badgeCount)}
-                </span>
-              )}
-            </Link>
-          )
+          return <SidebarLink key={item.href} item={item} pathname={pathname} pendingHref={pendingHref} badgeCount={badgeCount} onNavigate={handleNavigate} />
         })}
       </nav>
 
@@ -316,22 +255,11 @@ export function AdminSidebar({ user, onClose }: { user: { name?: string; email?:
           <p className="text-xs text-gray-500 truncate">{user?.email}</p>
         </div>
         <div className="flex gap-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            className={`flex-1 justify-center ${soundEnabled ? 'text-blue-600 hover:text-blue-700 hover:bg-blue-50' : 'text-gray-400 hover:text-gray-600'}`}
-            onClick={() => setSoundEnabled(!soundEnabled)}
-            title={soundEnabled ? 'Sesli uyarı açık' : 'Sesli uyarı kapalı'}
-          >
+          <Button variant="ghost" size="sm" className={`flex-1 justify-center ${soundEnabled ? 'text-blue-600 hover:text-blue-700 hover:bg-blue-50' : 'text-gray-400 hover:text-gray-600'}`} onClick={() => setSoundEnabled(!soundEnabled)} title={soundEnabled ? 'Sesli uyarı açık' : 'Sesli uyarı kapalı'}>
             <Volume2 className={`h-4 w-4 ${soundEnabled ? '' : 'line-through'}`} />
           </Button>
-          <Button
-            variant="ghost"
-            className="flex-[2] justify-start text-red-600 hover:text-red-700 hover:bg-red-50"
-            onClick={() => signOut({ callbackUrl: '/admin' })}
-          >
-            <LogOut className="mr-2 h-4 w-4" />
-            Çıkış Yap
+          <Button variant="ghost" className="flex-[2] justify-start text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => signOut({ callbackUrl: '/admin' })}>
+            <LogOut className="mr-2 h-4 w-4" />Çıkış Yap
           </Button>
         </div>
       </div>
