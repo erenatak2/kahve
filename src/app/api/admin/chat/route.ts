@@ -24,15 +24,40 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'AI anahtarı sunucuda bulunamadı. Lütfen ayarları kontrol edin.' }, { status: 500 })
     }
 
-    // 1. CRM Bağlamını Topla (Context) - OPTİMİZE EDİLDİ
+    // 1. CRM Bağlamını Topla (Analitik Veriler)
+    const now = new Date()
+    const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+    const firstDayOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+    const lastDayOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0)
+
     const [
       stats,
+      thisMonthStats,
+      lastMonthStats,
+      paymentStats,
       pendingOverdue,
-      atRiskSamples
+      atRiskSamples,
+      totalCustomers
     ] = await Promise.all([
+      // Genel Özet
       prisma.order.aggregate({
         _count: true,
         _sum: { totalAmount: true }
+      }),
+      // Bu Ayki Performans
+      prisma.order.aggregate({
+        _sum: { totalAmount: true },
+        where: { createdAt: { gte: firstDayOfMonth } }
+      }),
+      // Geçen Ayki Performans
+      prisma.order.aggregate({
+        _sum: { totalAmount: true },
+        where: { createdAt: { gte: firstDayOfLastMonth, lte: lastDayOfLastMonth } }
+      }),
+      // Tahsilat Durumu
+      prisma.payment.groupBy({
+        by: ['status'],
+        _sum: { amount: true }
       }),
       // Sadece en kritik 10 gecikmiş ödeme
       prisma.payment.findMany({
@@ -41,43 +66,60 @@ export async function POST(req: NextRequest) {
         orderBy: { dueDate: 'asc' },
         include: { order: { include: { customer: { include: { user: true } } } } }
       }),
-      // Risk grubundan 5 örnek isim (Context şişmesin diye)
+      // Risk grubundan örnekler
       prisma.customer.findMany({
         where: { isActive: true },
         take: 50,
         include: { user: true, orders: { orderBy: { createdAt: 'desc' }, take: 1 } }
-      })
+      }),
+      prisma.customer.count()
     ])
 
-    // Toplam Müşteri Sayısı (Hafif sorgu)
-    const totalCustomers = await prisma.customer.count()
+    // Tahsilat rakamlarını işle
+    const paidAmount = paymentStats.find(p => p.status === 'ODENDI')?._sum.amount || 0
+    const pendingAmount = paymentStats.find(p => p.status === 'BEKLIYOR')?._sum.amount || 0
+    const overdueAmount = paymentStats.find(p => p.status === 'GECIKTI')?._sum.amount || 0
+    const totalReceivable = pendingAmount + overdueAmount
+    const collectionRate = paidAmount > 0 ? (paidAmount / (paidAmount + totalReceivable)) * 100 : 0
 
-    // Riskli isimleri ayıkla
-    const atRiskNames = atRiskSamples
+    // Riskli isimleri ayıkla (Akıllı mantık)
+    const atRiskList = atRiskSamples
       .filter(c => {
-        if (!c.orders || !c.orders[0]) return false
+        if (!c.orders || !c.orders[0]) return true // Hiç siparişi olmayanlar risklidir
         const lastOrder = new Date(c.orders[0].createdAt)
         const daysSince = (Date.now() - lastOrder.getTime()) / (1000 * 60 * 60 * 24)
-        return daysSince > (c.avgOrderDays || 30) * 1.3
+        return daysSince > (c.avgOrderDays || 30) * 1.2
       })
-      .map(c => c.user?.name || 'Bilinmeyen Müşteri')
-      .slice(0, 10) // Sadece ilk 10'unu prompt'a ekle
+      .map(c => ({
+        name: c.user?.name || 'Bilinmeyen',
+        lastOrder: c.orders[0]?.createdAt.toLocaleDateString('tr-TR') || 'Yok',
+        totalOrders: c.orders.length
+      }))
+      .slice(0, 8)
 
     const contextString = `
-      Sen Erkan Bey'in (şirket sahibi) çok profesyonel, dürüst ve zeki bir plasiyer müdürü yardımcısısın. 
-      Sana "Erkan Bey" diye hitap etmeni istiyoruz. Tonun nazik, saygılı ve iş odaklı olsun.
+      Sen Erkan Bey'in (şirket sahibi) Stratejik Danışmanı ve Sağ Kolusun. 
+      Sana "Erkan Bey" diye hitap etmeni istiyoruz. Tonun profesyonel, dürüst ve aksiyon odaklı olsun.
       
-      ŞİRKET DURUMU (ÖZET VERİLER):
-      - Toplam Sipariş: ${stats._count}
-      - Toplam Ciro: ${Number(stats._sum?.totalAmount || 0).toLocaleString('tr-TR')} TL
-      - Toplam Müşteri: ${totalCustomers}
-      - Kritik Gecikmiş Ödemeler: ${pendingOverdue.map(p => `${p.order?.customer?.user?.name || 'Bilinmeyen'} (${Number(p.amount || 0).toLocaleString('tr-TR')} TL)`).join(', ')}
-      - Bazı Riskli Müşteriler: ${atRiskNames.join(', ')}
+      GÖREVİN: Sadece soru cevaplamak değil, verileri yorumlayıp Erkan Bey'e akıllıca tavsiyeler vermektir.
       
-      GÖREVİN:
-      Erkan Bey sana soru sorduğunda bu verilere dayanarak ona cevap ver. 
-      Lütfen cevaplarını kısa ve öz tut, Erkan Bey meşgul bir iş adamı.
-      Eğer borçlu birini sorarsa yukarıdaki listeden bulmaya çalış. Listede yoksa "Listemdeki kritik sızıntılar arasında görünmüyor ama cari hesaptan kontrol edebilirim" de.
+      DÜKKAN FİNANSAL ANALİZİ:
+      - Genel Durum: Toplam ${stats._count} siparişte ${Number(stats._sum?.totalAmount || 0).toLocaleString('tr-TR')} TL ciro yapıldı.
+      - Aylık Performans: Bu ay ${Number(thisMonthStats._sum?.totalAmount || 0).toLocaleString('tr-TR')} TL cirodasınız. Geçen ay toplam ${Number(lastMonthStats._sum?.totalAmount || 0).toLocaleString('tr-TR')} TL ciro yapılmıştı.
+      - Tahsilat Gücü: Şu ana kadar ${Number(paidAmount).toLocaleString('tr-TR')} TL nakit toplandı. İçeride ${Number(totalReceivable).toLocaleString('tr-TR')} TL alacağınız var (bunun ${Number(overdueAmount).toLocaleString('tr-TR')} TL'si vadesi geçmiş!).
+      - Tahsilat Oranı: %${collectionRate.toFixed(1)}. (Eğer %70 altındaysa Erkan Bey'i uyar!)
+      
+      KRİTİK MÜŞTERİLER/ALACAKLAR:
+      ${pendingOverdue.map(p => `- ${p.order?.customer?.user?.name || 'Müşteri'}: ${Number(p.amount || 0).toLocaleString('tr-TR')} TL (Vadesi: ${p.dueDate?.toLocaleDateString('tr-TR')})`).join('\n')}
+      
+      UYUYAN/RİSKLİ MÜŞTERİLER (Siparişi kesenler):
+      ${atRiskList.map(c => `- ${c.name}: Son sipariş ${c.lastOrder} tarihinde.`).join('\n')}
+      
+      ERKAN BEY İÇİN ÖNERİLER:
+      1. Tahsilat oranı %70 altındaysa nakit akışı uyarısı yap.
+      2. Geçen aya göre ciro düşük gidiyorsa satışları artırma önerisi sun.
+      3. Uyuyan müşterileri tek tek sayıp "Bunları arayalım mı?" de.
+      4. Eğer borçlu birini sorarsa sadece rakamı değil, "Yeni mal vermeden önce bu bakiyeyi kapatalım mı?" gibi stratejik fikirler ver.
     `
 
     // Gemini Başlatma
