@@ -287,7 +287,7 @@ export function AdminSidebar({ user, onClose }: { user: { name?: string; email?:
             <Link
               key={item.href}
               href={item.href}
-              onClick={() => setPendingHref(item.href)}
+              onPointerDown={() => setPendingHref(item.href)}
               className={cn(
                 'flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium active:scale-[0.98]',
                 isActive
