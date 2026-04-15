@@ -9,6 +9,11 @@ async function getDashboardData(session: any) {
   const role = (session.user as any).role
   const isSalesRep = role === 'SATICI'
 
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const todayEnd = new Date()
+  todayEnd.setHours(23, 59, 59, 999)
+
   // Tüm bağımsız sorguları tek bir dev paralel havuzda topla (Turbo Query)
   const [
     statsData,
@@ -138,6 +143,56 @@ async function getDashboardData(session: any) {
   ])
 
   const [totalOrders, totalRevenue, totalCustomers, totalProducts] = statsData
+
+  const nowTime = new Date().getTime()
+  
+  const segments = {
+    vip: [] as any[],
+    regular: [] as any[],
+    atRisk: [] as any[],
+    passive: [] as any[]
+  }
+
+  allCustomersWithOrders.forEach(c => {
+    const orders = c.orders
+    const revenueSum = orders.reduce((sum, o) => sum + o.totalAmount, 0)
+    
+    let avgDays = c.avgOrderDays || 30 // Varsayılan 30 gün
+    
+    // Eğer 2 veya daha fazla siparişi varsa ortalama süreyi hesapla
+    if (orders.length >= 2) {
+      const firstOrder = new Date(orders[orders.length - 1].createdAt).getTime()
+      const lastOrder = new Date(orders[0].createdAt).getTime()
+      const totalDays = (lastOrder - firstOrder) / (1000 * 60 * 60 * 24)
+      avgDays = totalDays / (orders.length - 1)
+      if (avgDays < 1) avgDays = 1 // Güvenlik sınırı
+    }
+
+    const lastOrderDate = orders.length > 0 ? new Date(orders[0].createdAt).getTime() : 0
+    const daysSinceLastOrder = lastOrderDate > 0 ? (nowTime - lastOrderDate) / (1000 * 60 * 60 * 24) : 999
+    
+    const customerData = {
+      id: c.id,
+      name: c.businessName || c.user?.name || '',
+      phone: c.phone || '',
+      avgDays: Math.round(avgDays),
+      daysSinceLastOrder: Math.round(daysSinceLastOrder),
+      totalRevenue: revenueSum,
+      orderCount: orders.length
+    }
+
+    if (orders.length === 0) {
+      segments.passive.push(customerData)
+    } else if (daysSinceLastOrder > avgDays * 2) {
+      segments.passive.push(customerData)
+    } else if (daysSinceLastOrder > avgDays * 1.25) {
+      segments.atRisk.push(customerData)
+    } else if (revenueSum > 50000 || (orders.length > 10 && daysSinceLastOrder < avgDays)) {
+      segments.vip.push(customerData)
+    } else {
+      segments.regular.push(customerData)
+    }
+  })
 
   return {
     stats: {
