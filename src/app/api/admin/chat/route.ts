@@ -82,7 +82,8 @@ export async function POST(req: NextRequest) {
 
     // Gemini Başlatma
     const genAI = new GoogleGenerativeAI(apiKey)
-    const geminiModel = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
+    // 'gemini-1.5-flash' yerine 'gemini-1.5-flash-latest' kullanarak 404 hatasını gidermeye çalışıyoruz
+    const geminiModel = genAI.getGenerativeModel({ model: 'gemini-1.5-flash-latest' })
 
     const chat = geminiModel.startChat({
       history: [
@@ -113,11 +114,13 @@ export async function POST(req: NextRequest) {
       errorMsg = 'Sorunuz güvenlik filtrelerine takıldı. Lütfen farklı şekilde sorun.'
     } else if (errorMessage.includes('quota') || errorMessage.includes('rate limit')) {
       errorMsg = 'AI kullanım kotası doldu. Lütfen biraz bekleyin.'
+    } else if (errorMessage.includes('404') || errorMessage.includes('not found')) {
+      errorMsg = 'AI modeli sunucuda bulunamadı. Model ismini (gemini-pro) olarak güncellemeyi deneyebiliriz.'
     }
 
     return NextResponse.json({ 
       error: errorMsg,
-      debug: process.env.NODE_ENV === 'development' ? error?.message : undefined,
+      debug: error?.message, // Hata ne olursa olsun detay verelim ki görebilelim
       type: error?.name || 'Error'
     }, { status: 500 })
   }
