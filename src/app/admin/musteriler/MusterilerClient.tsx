@@ -431,9 +431,9 @@ export default function MusterilerClient({ initialCustomers, initialProducts, in
                             <span className={cn("text-[9px] font-black px-1.5 py-0.5 rounded border uppercase tracking-tighter shrink-0", rank.color)}>
                                 {rank.label}
                             </span>
-                            <p className="font-bold text-slate-900 flex items-center gap-1.5 line-clamp-1">
+                            <p className="font-medium flex items-center gap-1.5 line-clamp-1">
                                 {c.businessName || c.user?.name}
-                                {c.businessName && <span className="text-[10px] text-gray-400 font-normal italic">({c.user?.name})</span>}
+                                {c.businessName && <span className="text-[10px] text-gray-400 font-normal">({c.user?.name})</span>}
                             </p>
                         </div>
                         {!c.salesRep && (session?.user as any)?.role === 'ADMIN' && (
