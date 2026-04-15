@@ -108,7 +108,7 @@ export async function POST(req: NextRequest) {
     let errorMsg = 'AI şu an meşgul, lütfen birazdan tekrar deneyin.'
     const errorMessage = error?.message?.toLowerCase() || ''
     
-    if (errorMessage.includes('api key' || errorMessage.includes('api_key_invalid'))) {
+    if (errorMessage.includes('api key') || errorMessage.includes('api_key_invalid')) {
       errorMsg = 'AI anahtarı (GEMINI_API_KEY) hatalı veya geçersiz. Lütfen ayarları kontrol edin.'
     } else if (errorMessage.includes('safety')) {
       errorMsg = 'Sorunuz güvenlik filtrelerine takıldı. Lütfen farklı şekilde sorun.'
