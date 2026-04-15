@@ -120,6 +120,12 @@ export async function POST(req: NextRequest) {
       2. Geçen aya göre ciro düşük gidiyorsa satışları artırma önerisi sun.
       3. Uyuyan müşterileri tek tek sayıp "Bunları arayalım mı?" de.
       4. Eğer borçlu birini sorarsa sadece rakamı değil, "Yeni mal vermeden önce bu bakiyeyi kapatalım mı?" gibi stratejik fikirler ver.
+
+      ÖNEMLİ FORMAT KURALLARI:
+      - Cevaplarında mutlaka **Markdown** kullan.
+      - Önemli rakamları ve isimleri **kalın (bold)** yap.
+      - Listeleri madde işaretleri ile sun.
+      - Paragraflar arasında boşluk bırak ki Erkan Bey rahat okusun.
     `
 
     // Gemini Başlatma

@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import { Bot, X, Send, MessageCircle, MoreVertical, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import ReactMarkdown from 'react-markdown'
 
 interface Message {
   role: 'user' | 'model'
@@ -88,12 +89,24 @@ export function AdminChatBot() {
                 m.role === 'user' ? "justify-end" : "justify-start"
               )}>
                 <div className={cn(
-                  "max-w-[85%] p-3 rounded-2xl text-sm shadow-sm",
+                  "max-w-[85%] p-3 rounded-2xl text-sm shadow-sm prose prose-slate max-w-none",
                   m.role === 'user' 
                     ? "bg-indigo-600 text-white rounded-tr-none" 
                     : "bg-white text-slate-800 border border-slate-100 rounded-tl-none"
                 )}>
-                  {m.content}
+                  {m.role === 'user' ? m.content : (
+                    <ReactMarkdown 
+                      components={{
+                        p: ({children}) => <p className="mb-2 last:mb-0">{children}</p>,
+                        ul: ({children}) => <ul className="list-disc ml-4 mb-2">{children}</ul>,
+                        ol: ({children}) => <ol className="list-decimal ml-4 mb-2">{children}</ol>,
+                        li: ({children}) => <li className="mb-1">{children}</li>,
+                        strong: ({children}) => <strong className="font-bold text-indigo-700">{children}</strong>
+                      }}
+                    >
+                      {m.content}
+                    </ReactMarkdown>
+                  )}
                 </div>
               </div>
             ))}
