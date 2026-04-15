@@ -107,10 +107,12 @@ export function AdminSidebar({ user, onClose }: { user: { name?: string; email?:
   const prevCounts = useRef<BadgeCounts>({ orders: 0, notifications: 0, customers: 0, reminders: 0 })
   const soundEnabledRef = useRef(true)
   const [pendingHref, setPendingHref] = useState<string | null>(null)
+  const [isNavigating, setIsNavigating] = useState(false)
   
-  // Clear pending state when navigated
+  // Clear pending state and navigation lock when navigated
   useEffect(() => {
     setPendingHref(null)
+    setIsNavigating(false)
   }, [pathname])
   
   // LocalStorage'dan görülen ve toplam sayıları yükle
@@ -287,8 +289,12 @@ export function AdminSidebar({ user, onClose }: { user: { name?: string; email?:
             <Link
               key={item.href}
               href={item.href}
-              prefetch={true}
-              onPointerDown={() => setPendingHref(item.href)}
+              prefetch={false} // Switch to smart prefetch (on hover)
+              onPointerDown={() => {
+                if (isNavigating) return
+                setPendingHref(item.href)
+                setIsNavigating(true)
+              }}
               className={cn(
                 'flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 active:scale-[0.98]',
                 isActive
