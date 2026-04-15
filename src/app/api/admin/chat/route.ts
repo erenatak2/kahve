@@ -9,227 +9,93 @@ export async function POST(req: NextRequest) {
     const session = await getServerSession(authOptions)
     if (!session) return NextResponse.json({ error: 'Yetkisiz' }, { status: 401 })
 
-    // Body kontrolü
     const body = await req.json().catch(() => ({}))
     const { message, history = [] } = body
+    if (!message) return NextResponse.json({ error: 'Mesaj boş olamaz.' }, { status: 400 })
 
-    if (!message) {
-      return NextResponse.json({ error: 'Mesaj içeriği boş olamaz.' }, { status: 400 })
-    }
-
-    // API Key Kontrolü (Handler içinde taze okuma)
     const apiKey = process.env.GEMINI_API_KEY
-    if (!apiKey) {
-      console.error('GEMINI_API_KEY is missing in environment variables')
-      return NextResponse.json({ error: 'AI anahtarı sunucuda bulunamadı. Lütfen ayarları kontrol edin.' }, { status: 500 })
-    }
+    if (!apiKey) return NextResponse.json({ error: 'AI anahtarı eksik.' }, { status: 500 })
 
-    // 1. CRM Bağlamını Topla (Analitik Veriler)
     const now = new Date()
-    const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
-    const firstDayOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1)
-    const lastDayOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0)
+    const lowerMessage = message.toLowerCase()
+    
+    // Analiz talebi tespiti (Sadece bu kelimeler varsa derin verilere bakacak)
+    const isAnalysisRequested = /analiz|durum|rapor|istatistik|finans|performans/.test(lowerMessage)
 
-    const [
-      stats,
-      thisMonthStats,
-      lastMonthStats,
-      paymentStats,
-      pendingOverdue,
-      atRiskSamples,
-      totalCustomers,
-      topProducts,
-      lowStockProducts,
-      loyalCustomers,
-      recentCallLogs,
-      upcomingReminders,
-      regionalDistribution,
-      sellerStats,
-      upcomingCashFlow
-    ] = await Promise.all([
-      // Genel ve Aylık Özetler
-      prisma.order.aggregate({ _count: true, _sum: { totalAmount: true } }),
-      prisma.order.aggregate({ _sum: { totalAmount: true }, where: { createdAt: { gte: firstDayOfMonth } } }),
-      prisma.order.aggregate({ _sum: { totalAmount: true }, where: { createdAt: { gte: firstDayOfLastMonth, lte: lastDayOfLastMonth } } }),
-      
-      // Tahsilat Durumu (Genel)
-      prisma.payment.groupBy({ by: ['status'], _sum: { amount: true } }),
-      
-      // Kritik Alacaklılar ve Müşteri Detaylı Özet
-      prisma.payment.findMany({
-        where: { status: 'GECIKTI' },
-        take: 12,
-        orderBy: { dueDate: 'asc' },
-        include: { 
-          order: { 
-            include: { 
-              customer: { 
-                include: { 
-                  user: { select: { name: true } },
-                  orders: { select: { totalAmount: true } },
-                  paymentNotifications: { where: { status: 'ONAYLANDI' }, select: { amount: true } }
-                } 
-              } 
-            } 
-          } 
-        }
-      }),
-      
-      // Riskli Müşteriler
-      prisma.customer.findMany({
-        where: { isActive: true },
-        take: 20,
-        include: { user: true, orders: { orderBy: { createdAt: 'desc' }, take: 1 } }
-      }),
-      
-      prisma.customer.count(),
-      
-      // Ürün Bilgileri
-      prisma.product.findMany({ where: { isActive: true }, take: 5, orderBy: { stock: 'desc' } }),
-      prisma.product.findMany({ where: { stock: { lte: 10 }, isActive: true }, take: 5 }),
-      
-      // Müşteri Segmentleri (VİP)
-      prisma.customer.findMany({ 
-        where: { isActive: true, notes: { contains: 'VİP' } }, 
-        take: 5, 
-        include: { user: { select: { name: true } } } 
-      }),
-      
-      // CRM
-      prisma.callLog.findMany({ take: 5, orderBy: { calledAt: 'desc' }, include: { customer: { include: { user: true } } } }),
-      prisma.order.findMany({ 
-        where: { reminderAt: { gte: now } }, 
-        take: 5, 
-        orderBy: { reminderAt: 'asc' }, 
-        include: { customer: { include: { user: true } } } 
-      }),
-      
-      // Bölgesel
-      prisma.customer.groupBy({ by: ['region'], _count: { id: true }, where: { isActive: true } }),
-      
-      // 4. Ekip Performansı (Plasiyer/Satıcı bazlı)
-      prisma.user.findMany({
-        where: { role: { in: ['SATICI', 'ADMIN'] } },
-        select: {
-          name: true,
-          sellerCustomers: {
-            select: {
-              orders: { select: { totalAmount: true } },
-              paymentNotifications: { where: { status: 'ONAYLANDI' }, select: { amount: true } }
-            }
-          }
-        }
-      }),
-      
-      // 5. Nakit Akışı Tahmini (Önümüzdeki 7 gün vadesi dolanlar)
-      prisma.payment.aggregate({
-        _sum: { amount: true },
-        where: { 
-          status: 'BEKLIYOR',
-          dueDate: { 
-            gte: now, 
-            lte: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000) 
-          }
-        }
+    // 1. TEMEL VERİLER (Her zaman lazım)
+    const [allCustomersShort, allProductsShort, recentOrders] = await Promise.all([
+      prisma.customer.findMany({ select: { id: true, user: { select: { name: true } }, discountRate: true } }),
+      prisma.product.findMany({ where: { isActive: true, stock: { gt: 0 } }, select: { id: true, name: true, salePrice: true, code: true } }),
+      prisma.order.findMany({
+        take: 5,
+        orderBy: { createdAt: 'desc' },
+        include: { customer: { include: { user: { select: { name: true } }, salesRep: { select: { name: true } } } } }
       })
     ])
 
-    // 5. Çapraz Satış ve Ürün Analizi (Ürün bazlı ilgi)
-    const orderItemsSample = await prisma.orderItem.findMany({
-      take: 50,
-      orderBy: { id: 'desc' },
-      select: { product: { select: { name: true, category: true } } }
-    })
+    let analysisContext = ""
+    
+    // 2. DERİN VERİLER (Sadece analiz istendiğinde)
+    if (isAnalysisRequested) {
+      const [thisMonthStats, paymentStats, sellerStats] = await Promise.all([
+        prisma.order.aggregate({ _sum: { totalAmount: true }, where: { createdAt: { gte: new Date(now.getFullYear(), now.getMonth(), 1) } } }),
+        prisma.payment.groupBy({ by: ['status'], _sum: { amount: true } }),
+        prisma.user.findMany({
+          where: { role: { in: ['SATICI', 'ADMIN'] } },
+          select: {
+            name: true,
+            sellerCustomers: {
+              select: {
+                orders: { select: { totalAmount: true } },
+                paymentNotifications: { where: { status: 'ONAYLANDI' }, select: { amount: true } }
+              }
+            }
+          }
+        })
+      ])
 
-    const productAffinity = orderItemsSample.reduce((acc: any, item) => {
-      const name = item.product.name
-      acc[name] = (acc[name] || 0) + 1
-      return acc
-    }, {})
-
-    // Finansal rakamları temizle
-    const paidAmount = paymentStats.find(p => p.status === 'ODENDI')?._sum.amount || 0
-    const pendingAmount = paymentStats.find(p => p.status === 'BEKLIYOR')?._sum.amount || 0
-    const overdueAmount = paymentStats.find(p => p.status === 'GECIKTI')?._sum.amount || 0
-    const totalReceivable = pendingAmount + overdueAmount
-    const collectionRate = paidAmount > 0 ? (paidAmount / (paidAmount + totalReceivable)) * 100 : 0
-
-    // Müşteri bazlı özetleri hazırla (Ömer Faruk gibi sorular için + GÜVEN SKORU)
-    const criticalCustomerSummaries = pendingOverdue.map(p => {
-      const cust = p.order?.customer
-      const totalBought = cust?.orders.reduce((sum, o) => sum + o.totalAmount, 0) || 0
-      const totalPaid = cust?.paymentNotifications.reduce((sum, pn) => sum + pn.amount, 0) || 0
-      const balance = totalBought - totalPaid
+      const paid = paymentStats.find(p => p.status === 'ODENDI')?._sum.amount || 0
+      const pending = (paymentStats.find(p => p.status === 'BEKLIYOR')?._sum.amount || 0) + (paymentStats.find(p => p.status === 'GECIKTI')?._sum.amount || 0)
       
-      // Güven Skoru Hesaplama (Basit Algoritma)
-      let score = 'B'
-      if (totalPaid > totalBought * 0.8) score = 'A+'
-      else if (totalPaid > totalBought * 0.5) score = 'B+'
-      else if (totalPaid < totalBought * 0.2) score = 'C-'
-
-      return {
-        name: cust?.user?.name || 'Bilinmeyen',
-        outstanding: p.amount,
-        dueDate: p.dueDate?.toLocaleDateString('tr-TR'),
-        totalBought,
-        totalPaid,
-        balance,
-        score
-      }
-    })
-
-    // Ekip performansını işle
-    const teamReport = sellerStats.map(s => {
-      const totalSales = s.sellerCustomers.reduce((sum, c) => sum + c.orders.reduce((os, o) => os + o.totalAmount, 0), 0)
-      const totalCollected = s.sellerCustomers.reduce((sum, c) => sum + c.paymentNotifications.reduce((ps, p) => ps + p.amount, 0), 0)
-      const rate = totalSales > 0 ? (totalCollected / totalSales) * 100 : 0
-      return `${s.name}: ${Number(totalSales).toLocaleString('tr-TR')} TL Satış (Tahsilat Başarısı: %${rate.toFixed(0)})`
-    }).join(', ')
-
-    // 6. MASTER DATA & RECENT ACTIVITY
-    const allCustomersShort = await prisma.customer.findMany({
-      select: { id: true, user: { select: { name: true } }, discountRate: true }
-    })
-    const allProductsShort = await prisma.product.findMany({
-      where: { stock: { gt: 0 } },
-      select: { id: true, name: true, salePrice: true, code: true, stock: true, unit: true }
-    })
-    const recentOrders = await prisma.order.findMany({
-      take: 5,
-      orderBy: { createdAt: 'desc' },
-      include: { customer: { include: { user: { select: { name: true } }, salesRep: { select: { name: true } } } } }
-    })
+      analysisContext = `
+        ANALİTİK VERİLER (SADECE SORULURSA KULLAN):
+        - Bu Ay Ciro: ${Number(thisMonthStats._sum?.totalAmount || 0).toLocaleString('tr-TR')} TL
+        - Tahsilat Başarısı: %${paid > 0 ? ((paid / (paid + pending)) * 100).toFixed(1) : 0}
+        - Ekip Performansı: ${sellerStats.map(s => {
+          const sales = s.sellerCustomers.reduce((sum, c) => sum + c.orders.reduce((os, o) => os + o.totalAmount, 0), 0)
+          return `${s.name}: ${Number(sales).toLocaleString('tr-TR')} TL Satış`
+        }).join(', ')}
+      `
+    }
 
     const contextString = `
-      Sen Erkan Bey'in "Yapay Zeka Beyni"sin. Erkan Bey yoğun bir liderdir, bu yüzden mesajların **KISA, ÖZ ve NOKTA ATIŞI** olmalı. 
+      Sen Erkan Bey'in pratik asistanısın. Erkan Bey uzun raporlardan ve moral bozan uyarılardan Nefret Eder.
       
-      DÜKKANDA SON OLUP BİTENLER (ANLIK):
-      ${recentOrders.map(o => `- **${o.customer.user?.name}** için **${Number(o.totalAmount).toLocaleString('tr-TR')} TL** tutarında sipariş (Temsilci: ${o.customer.salesRep?.name || 'Yok'}).`).join('\n')}
+      TEMEL KURALLAR:
+      1. KISA KONUŞ: Cevapların maksimum 1-2 cümle olsun.
+      2. MORAL BOZMA: Erkan Bey sormadıkça kimsenin performansını eleştirme, "risk var" diye ders verme.
+      3. ANLIK TAKİP: Erkan Bey bir olaydan (sipariş vs.) bahsederse önce aşağıdaki "SON İŞLEMLER"e bak. Oradaysa "Hangi müşteri?" diye sorma, bildiğini göster.
       
-      GÖREVLERİN:
-      1. AKILLI TAKİP: Erkan Bey "Eren sipariş verdi" veya "Ödeme geldi" dediğinde, yukarıdaki SON OLUP BİTENLER listesine bak. İsmi (Eren, Ömer vs.) oradakilerle eşleştir. Eğer listede varsa "Hangi müşteri?" diye sorma, doğrudan "Listeye baktım, [Müşteri] için [Tutar] TL'lik siparişini gördüm, hayırlı olsun" de.
-      2. ANALİZ: Sadece "Analiz et" denirse rapor ver.
-      3. SİPARİŞ HAZIRLAMA: Eğer yeni bir taslak istenirse (listede yoksa), Sorgulayıcı Hafıza ve Akıllı Öneriler ile ilerle.
+      SON İŞLEMLER (ANLIK):
+      ${recentOrders.map(o => `- **${o.customer.user?.name}** için **${Number(o.totalAmount).toLocaleString('tr-TR')} TL** (Temsilci: ${o.customer.salesRep?.name || 'Yok'})`).join('\n')}
+      
+      ${analysisContext}
       
       MASTER DATA:
       - Müşteriler: ${JSON.stringify(allCustomersShort.map(c => ({ id: c.id, name: c.user?.name })))}
-      - Ürünler: ${JSON.stringify(allProductsShort.map(p => ({ id: p.id, name: p.name, price: p.salePrice, code: p.code })))}
+      - Ürünler: ${JSON.stringify(allProductsShort.map(p => ({ id: p.id, name: p.name, price: p.salePrice })))}
       
-      TALİMATLAR:
-      - **Yük Olma, Destek Ol:** Eğer veriler sistemde varsa Erkan Bey'e soru sorma, veriyi kendin bul.
-      - Onay aldığında EN SONA: [[CREATE_ORDER:{"customerId":"ID", "items":[{"productId":"ID", "quantity": ADET, "unitPrice": FİYAT}] }]]
+      TALİMAT: Sipariş hazırlarken eksik varsa tek cümleyle sor. Onay alırsan: [[CREATE_ORDER:{"customerId":"ID", "items":[{"productId":"ID", "quantity": ADET, "unitPrice": FİYAT}] }]]
     `
 
-    // Gemini Başlatma
     const genAI = new GoogleGenerativeAI(apiKey)
-    // Orijinal modele (gemini-1.5-flash) deprecate olduğu için gemini-2.5-flash'a geçiyoruz
     const geminiModel = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' })
 
     const chat = geminiModel.startChat({
       history: [
         { role: 'user', parts: [{ text: contextString }] },
-        { role: 'model', parts: [{ text: 'Anlaşıldı Erkan Bey! Ben hazırım. Dükkanın özet verileri elimde. Size nasıl yardımcı olabilirim? Hangi müşteriyi soracaksınız veya bugünkü planınızı mı yapalım?' }] },
-        ...history.map((h: any) => ({
+        { role: 'model', parts: [{ text: 'Anlaşıldı Erkan Bey, hazırım. Nasıl yardımcı olabilirim?' }] },
+        ...history.slice(-10).map((h: any) => ({
           role: h.role === 'user' ? 'user' : 'model',
           parts: [{ text: String(h.content || '') }]
         }))
@@ -237,31 +103,11 @@ export async function POST(req: NextRequest) {
     })
 
     const result = await chat.sendMessage(message)
-    const response = await result.response
-    const text = response.text()
+    const text = (await result.response).text()
 
     return NextResponse.json({ content: text })
   } catch (error: any) {
-    console.error('Chat API Detailed Error:', error)
-    
-    // Daha açıklayıcı hata mesajları
-    let errorMsg = 'AI şu an meşgul, lütfen birazdan tekrar deneyin.'
-    const errorMessage = error?.message?.toLowerCase() || ''
-    
-    if (errorMessage.includes('api key') || errorMessage.includes('api_key_invalid')) {
-      errorMsg = 'AI anahtarı (GEMINI_API_KEY) hatalı veya geçersiz. Lütfen ayarları kontrol edin.'
-    } else if (errorMessage.includes('safety')) {
-      errorMsg = 'Sorunuz güvenlik filtrelerine takıldı. Lütfen farklı şekilde sorun.'
-    } else if (errorMessage.includes('quota') || errorMessage.includes('rate limit')) {
-      errorMsg = 'AI kullanım kotası doldu. Lütfen biraz bekleyin.'
-    } else if (errorMessage.includes('404') || errorMessage.includes('not found')) {
-      errorMsg = 'AI modeli (gemini-1.5-flash) bulunamadı. Lütfen sistemde bu modelin aktif olduğundan emin olun veya gemini-pro deneyin.'
-    }
-
-    return NextResponse.json({ 
-      error: errorMsg,
-      debug: error?.message, 
-      type: error?.name || 'Error'
-    }, { status: 500 })
+    console.error('Chat Error:', error)
+    return NextResponse.json({ error: 'Sistem şu an meşgul.' }, { status: 500 })
   }
 }
