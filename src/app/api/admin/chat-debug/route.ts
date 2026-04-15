@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { GoogleGenerativeAI } from '@google/generative-ai'
 
 export async function GET(req: NextRequest) {
   const checks: any = {
@@ -37,6 +38,38 @@ export async function GET(req: NextRequest) {
   // 4. Auth secret check
   checks.nextAuthSecretPresent = !!process.env.NEXTAUTH_SECRET
   checks.nextAuthUrl = process.env.NEXTAUTH_URL
+
+  // 5. Test Gemini Models - HANGİSİ ÇALIŞIYOR?
+  checks.geminiModels = {}
+  
+  if (process.env.GEMINI_API_KEY) {
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
+    const modelsToTest = [
+      'gemini-1.5-pro',
+      'gemini-1.5-pro-latest', 
+      'gemini-1.5-flash',
+      'gemini-1.5-flash-latest',
+      'gemini-pro'
+    ]
+    
+    for (const modelName of modelsToTest) {
+      try {
+        const model = genAI.getGenerativeModel({ model: modelName })
+        const result = await model.generateContent('Merhaba, test mesajı.')
+        const text = result.response.text()
+        checks.geminiModels[modelName] = { 
+          status: 'OK', 
+          response: text.substring(0, 50) + '...',
+          length: text.length
+        }
+      } catch (e: any) {
+        checks.geminiModels[modelName] = { 
+          status: 'ERROR', 
+          error: e.message || 'Unknown error'
+        }
+      }
+    }
+  }
 
   const allOk = checks.sessionOk && checks.geminiKeyPresent && checks.dbOk && checks.nextAuthSecretPresent
 
