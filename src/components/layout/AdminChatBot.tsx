@@ -14,7 +14,7 @@ export function AdminChatBot() {
   const [isOpen, setIsOpen] = useState(false)
   const [input, setInput] = useState('')
   const [messages, setMessages] = useState<Message[]>([
-    { role: 'model', content: 'Selam Erkan amca! Dükkanın tüm defterleri elimde, her şeyi ezberledim. Bana bir şey mi soracaktın, yoksa bugünkü satışları mı planlayalım?' }
+    { role: 'model', content: 'Selam Erkan Bey! Dükkanın tüm defterleri elimde, her şeyi ezberledim. Bana bir şey mi soracaktınız, yoksa bugünkü satışları mı planlayalım?' }
   ])
   const [isLoading, setIsLoading] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -47,10 +47,10 @@ export function AdminChatBot() {
       if (data.content) {
         setMessages(prev => [...prev, { role: 'model', content: data.content }])
       } else {
-        setMessages(prev => [...prev, { role: 'model', content: 'Kusura bakma Erkan amca, kafam biraz karıştı. Tekrar sorabilir misin?' }])
+        setMessages(prev => [...prev, { role: 'model', content: 'Kusura bakma Erkan Bey, kafam biraz karıştı. Tekrar sorabilir misiniz?' }])
       }
     } catch (error) {
-      setMessages(prev => [...prev, { role: 'model', content: 'Erkan amca internette bir temassızlık var herhalde, cevap veremedim.' }])
+      setMessages(prev => [...prev, { role: 'model', content: 'Erkan Bey internette bir temassızlık var herhalde, cevap veremedim.' }])
     } finally {
       setIsLoading(false)
     }
@@ -71,7 +71,7 @@ export function AdminChatBot() {
                 <h3 className="font-bold text-sm">Akıllı Asistan</h3>
                 <p className="text-[10px] text-indigo-100 flex items-center gap-1">
                   <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
-                  Erkan amca için hazır
+                  Erkan Bey için hazır
                 </p>
               </div>
             </div>
@@ -116,7 +116,7 @@ export function AdminChatBot() {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-                placeholder="Erkan amca, çekinme sor..."
+                placeholder="Erkan Bey, çekinme sor..."
                 className="flex-1 bg-slate-100 border-none rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-indigo-500 transition-all outline-none"
               />
               <Button 
