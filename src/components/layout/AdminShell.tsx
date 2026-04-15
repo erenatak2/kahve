@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { AdminSidebar } from './AdminSidebar'
+import { AdminChatBot } from './AdminChatBot'
 import { Menu, ShoppingBag } from 'lucide-react'
 
 export function AdminShell({ user, children }: { user: { name?: string; email?: string; role?: string }; children: React.ReactNode }) {
@@ -47,6 +48,9 @@ export function AdminShell({ user, children }: { user: { name?: string; email?: 
         <main className="flex-1 overflow-auto animate-in fade-in duration-300">
           {children}
         </main>
+
+        {/* Global AI ChatBot */}
+        <AdminChatBot />
       </div>
     </div>
   )
