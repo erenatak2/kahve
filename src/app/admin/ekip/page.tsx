@@ -7,48 +7,37 @@ export const metadata: Metadata = {
 }
 
 async function getTeamData() {
-  // 1. Ekip üyelerini çek (Admin ve Satıcı)
-  const teamMembers = await prisma.user.findMany({
-    where: { 
-      role: { in: ['ADMIN', 'SATICI'] } 
-    },
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      role: true,
-      createdAt: true
-    },
-    orderBy: { createdAt: 'desc' }
-  })
+  // 1. Gerekli tüm temel verileri paralel çek
+  const [teamMembers, customerCounts, allCustomersMapping] = await Promise.all([
+    // Ekip üyeleri (Admin ve Satıcı)
+    prisma.user.findMany({
+      where: { role: { in: ['ADMIN', 'SATICI'] } },
+      select: { id: true, name: true, email: true, role: true, createdAt: true },
+      orderBy: { createdAt: 'desc' }
+    }),
+    // Müşteri sayılarını toplu çek
+    prisma.customer.groupBy({
+      by: ['salesRepId'],
+      _count: { id: true },
+      where: { isActive: true }
+    }),
+    // Müşteri -> Satıcı eşleşmesi
+    prisma.customer.findMany({
+      select: { id: true, salesRepId: true }
+    })
+  ])
 
   const memberIds = teamMembers.map(m => m.id)
 
-  // 2. Müşteri sayılarını toplu çek
-  const customerCounts = await prisma.customer.groupBy({
-    by: ['salesRepId'],
-    _count: { id: true },
-    where: {
-      isActive: true,
-      salesRepId: { in: memberIds }
-    }
-  })
-
-  // 3. Sipariş istatistiklerini toplu çek
+  // 2. Sipariş istatistiklerini çek (customerId bazlı)
   const orderStatsByMember = await prisma.order.groupBy({
-    by: ['customerId'], // Siparişler müşteriye bağlı, müşteri de satıcıya
+    by: ['customerId'],
     _sum: { totalAmount: true },
     _count: { id: true },
     where: {
       status: { not: 'IPTAL' },
       customer: { salesRepId: { in: memberIds } }
     }
-  })
-
-  // 4. Müşteri -> Satıcı eşleşmesi için yardımcı veri
-  const customerMapping = await prisma.customer.findMany({
-    where: { salesRepId: { in: memberIds } },
-    select: { id: true, salesRepId: true }
   })
 
   // 5. İstatistikleri satıcı bazlı topla
@@ -67,7 +56,7 @@ async function getTeamData() {
 
   // Siparişleri ekle
   orderStatsByMember.forEach(stat => {
-    const mapping = customerMapping.find(m => m.id === stat.customerId)
+    const mapping = allCustomersMapping.find(m => m.id === stat.customerId)
     if (mapping?.salesRepId) {
       statsMap[mapping.salesRepId].totalSales += stat._sum.totalAmount || 0
       statsMap[mapping.salesRepId].orderCount += stat._count.id || 0
