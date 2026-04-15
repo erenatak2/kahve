@@ -282,10 +282,10 @@ export function AdminSidebar({ user, onClose }: { user: { name?: string; email?:
               key={item.href}
               href={item.href}
               className={cn(
-                'flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
+                'flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 active:scale-[0.98]',
                 isActive
-                  ? 'bg-blue-50 text-blue-700'
-                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                  ? 'bg-blue-50 text-blue-700 shadow-sm'
+                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 border border-transparent hover:border-gray-100'
               )}
             >
               <div className="flex items-center gap-3">
