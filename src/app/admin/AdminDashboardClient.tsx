@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button'
 import { ShoppingBag, TrendingUp, Users, Package, Clock, CreditCard, ShoppingCart, Phone, CheckCircle, MessageCircle, AlertCircle, MapPin, Bell, BellOff } from 'lucide-react'
 import { formatCurrency, formatDate, ORDER_STATUS_COLOR, ORDER_STATUS, cn } from '@/lib/utils'
 import { useToast } from '@/components/ui/use-toast'
-import { AIAssistantWidget } from '@/components/dashboard/AIAssistantWidget'
 
 interface AdminDashboardClientProps {
   initialData: any
@@ -180,8 +179,6 @@ export default function AdminDashboardClient({ initialData, session }: AdminDash
         })}
       </div>
 
-      {/* ===== AI SATIŞ ASİSTANI ===== */}
-      <AIAssistantWidget segments={segments} pendingPayments={pendingPayments} />
 
       {/* ===== BUGÜN ARANACAKLAR WIDGET ===== */}
       <Card className="border-orange-200 bg-gradient-to-r from-orange-50 to-amber-50">

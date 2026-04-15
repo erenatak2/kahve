@@ -134,6 +134,19 @@ export async function POST(req: NextRequest) {
       })
     ])
 
+    // 5. Çapraz Satış ve Ürün Analizi (Ürün bazlı ilgi)
+    const orderItemsSample = await prisma.orderItem.findMany({
+      take: 50,
+      orderBy: { id: 'desc' },
+      select: { product: { select: { name: true, category: true } } }
+    })
+
+    const productAffinity = orderItemsSample.reduce((acc: any, item) => {
+      const name = item.product.name
+      acc[name] = (acc[name] || 0) + 1
+      return acc
+    }, {})
+
     // Finansal rakamları temizle
     const paidAmount = paymentStats.find(p => p.status === 'ODENDI')?._sum.amount || 0
     const pendingAmount = paymentStats.find(p => p.status === 'BEKLIYOR')?._sum.amount || 0
@@ -141,18 +154,27 @@ export async function POST(req: NextRequest) {
     const totalReceivable = pendingAmount + overdueAmount
     const collectionRate = paidAmount > 0 ? (paidAmount / (paidAmount + totalReceivable)) * 100 : 0
 
-    // Müşteri bazlı özetleri hazırla (Ömer Faruk gibi sorular için)
+    // Müşteri bazlı özetleri hazırla (Ömer Faruk gibi sorular için + GÜVEN SKORU)
     const criticalCustomerSummaries = pendingOverdue.map(p => {
       const cust = p.order?.customer
       const totalBought = cust?.orders.reduce((sum, o) => sum + o.totalAmount, 0) || 0
       const totalPaid = cust?.paymentNotifications.reduce((sum, pn) => sum + pn.amount, 0) || 0
+      const balance = totalBought - totalPaid
+      
+      // Güven Skoru Hesaplama (Basit Algoritma)
+      let score = 'B'
+      if (totalPaid > totalBought * 0.8) score = 'A+'
+      else if (totalPaid > totalBought * 0.5) score = 'B+'
+      else if (totalPaid < totalBought * 0.2) score = 'C-'
+
       return {
         name: cust?.user?.name || 'Bilinmeyen',
         outstanding: p.amount,
         dueDate: p.dueDate?.toLocaleDateString('tr-TR'),
         totalBought,
         totalPaid,
-        balance: totalBought - totalPaid
+        balance,
+        score
       }
     })
 
@@ -160,38 +182,36 @@ export async function POST(req: NextRequest) {
     const teamReport = sellerStats.map(s => {
       const totalSales = s.sellerCustomers.reduce((sum, c) => sum + c.orders.reduce((os, o) => os + o.totalAmount, 0), 0)
       const totalCollected = s.sellerCustomers.reduce((sum, c) => sum + c.paymentNotifications.reduce((ps, p) => ps + p.amount, 0), 0)
-      return `${s.name}: ${Number(totalSales).toLocaleString('tr-TR')} TL Satış (Tahsilat: ${Number(totalCollected).toLocaleString('tr-TR')} TL)`
+      const rate = totalSales > 0 ? (totalCollected / totalSales) * 100 : 0
+      return `${s.name}: ${Number(totalSales).toLocaleString('tr-TR')} TL Satış (Tahsilat Başarısı: %${rate.toFixed(0)})`
     }).join(', ')
 
     const contextString = `
-      Sen Erkan Bey'in (şirket sahibi) Stratejik İş Ortağı ve CFO Danışmanısın. 
-      Sana "Erkan Bey" diye hitap edeceksin. Ses tonun; son derece zeki, analitik, dürüst ve dükkanı bir "İsviçre Saati" gibi hatasız yönetmeye odaklı olmalı.
+      Sen Erkan Bey'in (şirket sahibi) "Nihai İş Ortağı" ve "Yapay Zeka Beyni"sin.
+      Sana "Erkan Bey" diye hitap edeceksin. Karşında vizyoner bir lider var, bu yüzden konuşman stratejik, proaktif ve **aksiyon bitirici** olmalı. 
       
-      GÖREVİN: Dükkanın her hücresine (para, mal, insan, zaman) hakim olmak ve Erkan Bey'e "Kör Noktaları" göstermektir.
+      GÖREVLERİN:
+      1. ANALİZ: Verileri oku ve dükkanın geleceğini tahmin et.
+      2. AKSİYON: Erkan Bey'e "Şunu yapalım" demekle kalma, "Şunu kopyalayıp gönderin" diyerek hazır mesaj taslakları ver.
+      3. SATIŞ: En çok satan ürünleri ve müşterilerin eksiklerini takip et.
       
-      DÜKKAN RÖNTGENİ (DEEP BI PANELİ):
-      1. MALİ PERFORMANS VE NAKİT AKIŞI:
-         - Genel Ciro: ${Number(stats._sum?.totalAmount || 0).toLocaleString('tr-TR')} TL.
-         - Aylık Kıyas: Bu ay ${Number(thisMonthStats._sum?.totalAmount || 0).toLocaleString('tr-TR')} TL vs. Geçen ay ${Number(lastMonthStats._sum?.totalAmount || 0).toLocaleString('tr-TR')} TL.
-         - Tahsilat Gücü: Toplam ${Number(paidAmount).toLocaleString('tr-TR')} TL toplandı. Oran: %${collectionRate.toFixed(1)}.
-         - Gelecek Tahmini: Önümüzdeki 7 gün içinde dükkana ${Number(upcomingCashFlow._sum?.amount || 0).toLocaleString('tr-TR')} TL nakit girişi bekleniyor.
+      DÜKKAN RÖNTGENİ (ULTIMATE BI):
+      - Mali: Ciro ${Number(thisMonthStats._sum?.totalAmount || 0).toLocaleString('tr-TR')} TL. Tahsilat Oranı: %${collectionRate.toFixed(1)}. (Altın kural: %70 altı alarmdır!)
+      - Nakit Akışı: Önümüzdeki 7 günde beklenen giriş: ${Number(upcomingCashFlow._sum?.amount || 0).toLocaleString('tr-TR')} TL.
+      - Personel: ${teamReport}
       
-      2. EKİP (PLASİYER) PERFORMANSI:
-         - ${teamReport}
+      MÜŞTERİ RİSK VE GÜVEN ANALİZİ:
+      ${criticalCustomerSummaries.map(c => `- **${c.name}**: Borç: **${Number(c.balance).toLocaleString('tr-TR')} TL**. Toplam Ödeme: **${Number(c.totalPaid).toLocaleString('tr-TR')} TL**. GÜVEN SKORU: **[${c.score}]**. (Not: C ve altı risklidir, yeni mal vermeyin).`).join('\n')}
       
-      3. MÜŞTERİ KARNELERİ (Ödenen vs Borç):
-         ${criticalCustomerSummaries.map(c => `- ${c.name}: Bugüne kadar toplam ${Number(c.totalBought).toLocaleString('tr-TR')} TL mal aldı, bunun ${Number(c.totalPaid).toLocaleString('tr-TR')} TL'sini ÖDEDİ. Mevcut net borcu: ${Number(c.balance).toLocaleString('tr-TR')} TL. (Gecikmiş kalem: ${Number(c.outstanding).toLocaleString('tr-TR')} TL)`).join('\n')}
+      STOK & SATIŞ FIRSATLARI:
+      - Kritik Ürünler: ${lowStockProducts.map(p => p.name).join(', ')}
+      - İlgi Görenler: ${Object.keys(productAffinity).slice(0, 3).join(', ')}
       
-      4. OPERASYONEL RİSKLER:
-         - Kritik Stok: ${lowStockProducts.map(p => `${p.name} (${p.stock} adet)`).join(', ')}
-         - Uyuyan Müşteriler: ${atRiskSamples.slice(0, 5).map(c => c.user?.name).join(', ')}
-         - Son Görüşme Notları: ${recentCallLogs.map(l => `${l.customer?.user?.name}: ${l.note}`).join(' | ')}
-      
-      STRATEJİK TALİMATLAR:
-      - Erkan Bey bir müşteriyi sorduğunda sadece borcunu değil; "Bugüne kadar şu kadar ödedi, bu kadar mal aldı, ödeme sadakati şu" diye tam analiz ver.
-      - Plasiyerlerin performansını kıyasla. Kimin bölgesinde para takılıyorsa "Erkan Bey, şu arkadaşın bölgesinde tahsilatlar yavaşlamış" uyarısı yap.
-      - Stok bitmek üzereyse "Satışları kârlılığı yüksek ve stoktaki mallara yönlendirelim" tavsiyesi ver.
-      - Her zaman Markdown kullan. Rakamları ve isimleri **kalın** yap. Net ve kararlı konuş.
+      "İŞ BİTİRİCİ" TALİMATLARI:
+      - Eğer bir alacak sorulursa, cevabın sonunda mutlaka Erkan Bey'in WhatsApp'tan o müşteriye gönderebileceği; nazik, profesyonel ama net bir **"Hatırlatma Mesajı Taslağı"** olsun.
+      - Müşteri bazlı Güven Skoru [A+, B, C-] verilerini kullanarak "Bu müşteriye güvenebiliriz" veya "Burada durmalıyız" de.
+      - Satış Temsilcileri (Plasiyerler) için performans bazlı uyarılar yap.
+      - Her zaman Markdown kullan. Önemli her şeyi **kalın** yaz. Erkan Bey'in dükkanını büyütmek için buradasın!
     `
 
     // Gemini Başlatma
