@@ -137,7 +137,7 @@ export async function POST(req: NextRequest) {
 
     // Gemini Başlatma
     const genAI = new GoogleGenerativeAI(apiKey)
-    const geminiModel = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
+    const geminiModel = genAI.getGenerativeModel({ model: 'gemini-1.5-flash-latest' })
 
     // Chat history oluştur - güvenli mapping
     let chatHistory: any[] = []
