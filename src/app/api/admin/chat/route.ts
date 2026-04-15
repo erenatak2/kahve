@@ -37,7 +37,10 @@ export async function POST(req: NextRequest) {
       paymentStats,
       pendingOverdue,
       atRiskSamples,
-      totalCustomers
+      totalCustomers,
+      topProducts,
+      lowStockProducts,
+      loyalCustomers
     ] = await Promise.all([
       // Genel Özet
       prisma.order.aggregate({
@@ -59,20 +62,37 @@ export async function POST(req: NextRequest) {
         by: ['status'],
         _sum: { amount: true }
       }),
-      // Sadece en kritik 10 gecikmiş ödeme
+      // Kritik Gecikmiş Ödemeler
       prisma.payment.findMany({
         where: { status: 'GECIKTI' },
         take: 10,
         orderBy: { dueDate: 'asc' },
         include: { order: { include: { customer: { include: { user: true } } } } }
       }),
-      // Risk grubundan örnekler
+      // Riskli Müşteriler (Siparişi kesenler)
       prisma.customer.findMany({
         where: { isActive: true },
-        take: 50,
-        include: { user: true, orders: { orderBy: { createdAt: 'desc' }, take: 1 } }
+        take: 30,
+        include: { user: true, orders: { orderBy: { createdAt: 'desc' }, take: 3 } }
       }),
-      prisma.customer.count()
+      prisma.customer.count(),
+      // En Çok Satan Ürünler
+      prisma.product.findMany({
+        where: { isActive: true },
+        take: 5,
+        orderBy: { stock: 'desc' } // Örnek olarak stok üzerinden, normalde sipariş kalemlerinden sayılmalı
+      }),
+      // Kritik Stok Uyarıları
+      prisma.product.findMany({
+        where: { stock: { lte: 10 }, isActive: true },
+        take: 5
+      }),
+      // Sadık ve Düzenli Müşteriler
+      prisma.customer.findMany({
+        where: { isActive: true, notes: { contains: 'VİP' } }, // Veya sipariş sayısına göre
+        take: 5,
+        include: { user: true }
+      })
     ])
 
     // Tahsilat rakamlarını işle
@@ -82,50 +102,46 @@ export async function POST(req: NextRequest) {
     const totalReceivable = pendingAmount + overdueAmount
     const collectionRate = paidAmount > 0 ? (paidAmount / (paidAmount + totalReceivable)) * 100 : 0
 
-    // Riskli isimleri ayıkla (Akıllı mantık)
+    // Riskli isimleri ayıkla
     const atRiskList = atRiskSamples
       .filter(c => {
-        if (!c.orders || !c.orders[0]) return true // Hiç siparişi olmayanlar risklidir
+        if (!c.orders || !c.orders[0]) return true
         const lastOrder = new Date(c.orders[0].createdAt)
         const daysSince = (Date.now() - lastOrder.getTime()) / (1000 * 60 * 60 * 24)
         return daysSince > (c.avgOrderDays || 30) * 1.2
       })
-      .map(c => ({
-        name: c.user?.name || 'Bilinmeyen',
-        lastOrder: c.orders[0]?.createdAt.toLocaleDateString('tr-TR') || 'Yok',
-        totalOrders: c.orders.length
-      }))
-      .slice(0, 8)
+      .map(c => ({ name: c.user?.name || 'Bilinmeyen', last: c.orders[0]?.createdAt.toLocaleDateString('tr-TR') || 'Yok' }))
+      .slice(0, 5)
 
     const contextString = `
-      Sen Erkan Bey'in (şirket sahibi) Stratejik Danışmanı ve Sağ Kolusun. 
-      Sana "Erkan Bey" diye hitap etmeni istiyoruz. Tonun profesyonel, dürüst ve aksiyon odaklı olsun.
+      Sen Erkan Bey'in (şirket sahibi) Senior Satış ve Operasyon Direktörüsün. 
+      Sana "Erkan Bey" diye hitap edeceksin. Karşında çok tecrübeli bir iş adamı var, bu yüzden konuşman son derece kurumsal, vakur, dürüst ve vizyoner olmalı. 
+      Lafı uzatmadan, doğrudan veriye dayalı stratejik analizler sunmalısın.
       
-      GÖREVİN: Sadece soru cevaplamak değil, verileri yorumlayıp Erkan Bey'e akıllıca tavsiyeler vermektir.
+      GÖREVİN: Dükkanı Erkan Bey ile birlikte yönetmek. Sadece bilgi vermek yetmez; riskleri önceden sezmeli, stok krizlerini engellemeli ve satış artırıcı hamleler önermelisin.
       
-      DÜKKAN FİNANSAL ANALİZİ:
-      - Genel Durum: Toplam ${stats._count} siparişte ${Number(stats._sum?.totalAmount || 0).toLocaleString('tr-TR')} TL ciro yapıldı.
-      - Aylık Performans: Bu ay ${Number(thisMonthStats._sum?.totalAmount || 0).toLocaleString('tr-TR')} TL cirodasınız. Geçen ay toplam ${Number(lastMonthStats._sum?.totalAmount || 0).toLocaleString('tr-TR')} TL ciro yapılmıştı.
-      - Tahsilat Gücü: Şu ana kadar ${Number(paidAmount).toLocaleString('tr-TR')} TL nakit toplandı. İçeride ${Number(totalReceivable).toLocaleString('tr-TR')} TL alacağınız var (bunun ${Number(overdueAmount).toLocaleString('tr-TR')} TL'si vadesi geçmiş!).
-      - Tahsilat Oranı: %${collectionRate.toFixed(1)}. (Eğer %70 altındaysa Erkan Bey'i uyar!)
+      DÜKKAN VERİ ANALİZİ (GİZLİ PANEL):
+      1. FİNANSAL:
+         - Ciro: Bu ay ${Number(thisMonthStats._sum?.totalAmount || 0).toLocaleString('tr-TR')} TL (Geçen ay: ${Number(lastMonthStats._sum?.totalAmount || 0).toLocaleString('tr-TR')} TL).
+         - Tahsilat Gücü: Toplam ${Number(paidAmount).toLocaleString('tr-TR')} TL toplandı. Tahsilat oranımız %${collectionRate.toFixed(1)}.
+         - Riskli Alacaklar: ${Number(overdueAmount).toLocaleString('tr-TR')} TL vadesi geçmiş borç var.
       
-      KRİTİK MÜŞTERİLER/ALACAKLAR:
-      ${pendingOverdue.map(p => `- ${p.order?.customer?.user?.name || 'Müşteri'}: ${Number(p.amount || 0).toLocaleString('tr-TR')} TL (Vadesi: ${p.dueDate?.toLocaleDateString('tr-TR')})`).join('\n')}
+      2. STOK VE ÜRÜN:
+         - Kritik Stok (Acil Tedarik Lazım): ${lowStockProducts.map(p => `${p.name} (${p.stock} ${p.unit})`).join(', ')}
+         - Popüler Ürünler: ${topProducts.map(p => p.name).join(', ')}
       
-      UYUYAN/RİSKLİ MÜŞTERİLER (Siparişi kesenler):
-      ${atRiskList.map(c => `- ${c.name}: Son sipariş ${c.lastOrder} tarihinde.`).join('\n')}
+      3. MÜŞTERİ PORTFÖYÜ:
+         - Toplam Müşteri: ${totalCustomers}
+         - Kritik Borçlular: ${pendingOverdue.map(p => `${p.order?.customer?.user?.name || 'Müşteri'} (${Number(p.amount || 0).toLocaleString('tr-TR')} TL)`).join(', ')}
+         - Kaybedilmek Üzere Olanlar: ${atRiskList.map(c => `${c.name} (Son sipariş: ${c.last})`).join(', ')}
+         - Sadık/VİP Müşteriler: ${loyalCustomers.map(c => c.user?.name).join(', ')}
       
-      ERKAN BEY İÇİN ÖNERİLER:
-      1. Tahsilat oranı %70 altındaysa nakit akışı uyarısı yap.
-      2. Geçen aya göre ciro düşük gidiyorsa satışları artırma önerisi sun.
-      3. Uyuyan müşterileri tek tek sayıp "Bunları arayalım mı?" de.
-      4. Eğer borçlu birini sorarsa sadece rakamı değil, "Yeni mal vermeden önce bu bakiyeyi kapatalım mı?" gibi stratejik fikirler ver.
-
-      ÖNEMLİ FORMAT KURALLARI:
-      - Cevaplarında mutlaka **Markdown** kullan.
-      - Önemli rakamları ve isimleri **kalın (bold)** yap.
-      - Listeleri madde işaretleri ile sun.
-      - Paragraflar arasında boşluk bırak ki Erkan Bey rahat okusun.
+      STRATEJİK TALİMATLAR:
+      - Eğer tahsilat oranı düşükse Erkan Bey'e nakit akışı revizyonu öner.
+      - Stokları bitmek üzere olan ürünler için "Satışları buralara yönlendirmeyelim veya acil alım yapalım" de.
+      - Siparişi kesen müşteriler için "Bu hafta bizzat ziyaret edelim mi?" gibi saha önerileri ver.
+      - Erkan Bey'e her zaman "Yol arkadaşı" gibi yaklaş ama hiyerarşiyi (Erkan Bey asıl patrondur) asla bozma.
+      - Cevaplarında mutlaka Markdown kullan, önemli kısımları **kalın** yap.
     `
 
     // Gemini Başlatma
