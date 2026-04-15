@@ -106,6 +106,12 @@ export function AdminSidebar({ user, onClose }: { user: { name?: string; email?:
   const [soundEnabled, setSoundEnabled] = useState(true)
   const prevCounts = useRef<BadgeCounts>({ orders: 0, notifications: 0, customers: 0, reminders: 0 })
   const soundEnabledRef = useRef(true)
+  const [pendingHref, setPendingHref] = useState<string | null>(null)
+  
+  // Clear pending state when navigated
+  useEffect(() => {
+    setPendingHref(null)
+  }, [pathname])
   
   // LocalStorage'dan görülen ve toplam sayıları yükle
   useEffect(() => {
@@ -273,7 +279,7 @@ export function AdminSidebar({ user, onClose }: { user: { name?: string; email?:
           return true
         }).map((item) => {
           const Icon = item.icon
-          const isActive = pathname === item.href
+          const isActive = (pendingHref || pathname) === item.href
           
           const badgeCount = item.badgeKey ? Math.max(0, counts[item.badgeKey] - seenCounts[item.badgeKey]) : 0
           
@@ -281,6 +287,7 @@ export function AdminSidebar({ user, onClose }: { user: { name?: string; email?:
             <Link
               key={item.href}
               href={item.href}
+              onClick={() => setPendingHref(item.href)}
               className={cn(
                 'flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 active:scale-[0.98]',
                 isActive
