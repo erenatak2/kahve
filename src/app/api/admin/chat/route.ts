@@ -4,80 +4,112 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { GoogleGenerativeAI } from '@google/generative-ai'
 
-// Initialize Gemini
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '')
-const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
-
 export async function POST(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
     if (!session) return NextResponse.json({ error: 'Yetkisiz' }, { status: 401 })
 
-    const { message, history } = await req.json()
+    // Body kontrolü
+    const body = await req.json().catch(() => ({}))
+    const { message, history = [] } = body
 
-    // 1. CRM Bağlamını Topla (Context)
+    if (!message) {
+      return NextResponse.json({ error: 'Mesaj içeriği boş olamaz.' }, { status: 400 })
+    }
+
+    // API Key Kontrolü (Handler içinde taze okuma)
+    const apiKey = process.env.GEMINI_API_KEY
+    if (!apiKey) {
+      console.error('GEMINI_API_KEY is missing in environment variables')
+      return NextResponse.json({ error: 'AI anahtarı sunucuda bulunamadı. Lütfen ayarları kontrol edin.' }, { status: 500 })
+    }
+
+    // 1. CRM Bağlamını Topla (Context) - OPTİMİZE EDİLDİ
     const [
-      totalOrders,
-      totalRevenue,
-      totalCustomers,
-      pendingPayments,
-      customers
+      stats,
+      pendingOverdue,
+      atRiskSamples
     ] = await Promise.all([
-      prisma.order.count(),
-      prisma.order.aggregate({ _sum: { totalAmount: true } }),
-      prisma.customer.count(),
+      prisma.order.aggregate({
+        _count: true,
+        _sum: { totalAmount: true }
+      }),
+      // Sadece en kritik 10 gecikmiş ödeme
       prisma.payment.findMany({
         where: { status: 'GECIKTI' },
+        take: 10,
+        orderBy: { dueDate: 'asc' },
         include: { order: { include: { customer: { include: { user: true } } } } }
       }),
+      // Risk grubundan 5 örnek isim (Context şişmesin diye)
       prisma.customer.findMany({
+        where: { isActive: true },
+        take: 50,
         include: { user: true, orders: { orderBy: { createdAt: 'desc' }, take: 1 } }
       })
     ])
 
-    // Segmentasyon Mantığı (Basitleştirilmiş)
-    const atRisk = customers.filter(c => {
-      if (!c.orders[0]) return false
-      const lastOrder = new Date(c.orders[0].createdAt)
-      const daysSince = (Date.now() - lastOrder.getTime()) / (1000 * 60 * 60 * 24)
-      return daysSince > (c.avgOrderDays || 30) * 1.3
-    })
+    // Toplam Müşteri Sayısı (Hafif sorgu)
+    const totalCustomers = await prisma.customer.count()
+
+    // Riskli isimleri ayıkla
+    const atRiskNames = atRiskSamples
+      .filter(c => {
+        if (!c.orders[0]) return false
+        const lastOrder = new Date(c.orders[0].createdAt)
+        const daysSince = (Date.now() - lastOrder.getTime()) / (1000 * 60 * 60 * 24)
+        return daysSince > (c.avgOrderDays || 30) * 1.3
+      })
+      .map(c => c.user.name)
+      .slice(0, 10) // Sadece ilk 10'unu prompt'a ekle
 
     const contextString = `
       Sen Erkan Bey'in (şirket sahibi) çok profesyonel, dürüst ve zeki bir plasiyer müdürü yardımcısısın. 
       Sana "Erkan Bey" diye hitap etmeni istiyoruz. Tonun nazik, saygılı ve iş odaklı olsun.
       
-      ŞİRKET DURUMU (GERÇEK VERİLER):
-      - Toplam Sipariş Sayısı: ${totalOrders}
-      - Toplam Ciro: ${totalRevenue._sum.totalAmount || 0} TL
-      - Toplam Aktif Müşteri: ${totalCustomers}
-      - Gecikmiş Ödemesi Olan Müşteriler: ${pendingPayments.map(p => `${p.order.customer.user.name} (${p.amount} TL)`).join(', ')}
-      - Risk Grubu (Kayıp Riski): ${atRisk.map(c => c.user.name).join(', ')}
+      ŞİRKET DURUMU (ÖZET VERİLER):
+      - Toplam Sipariş: ${stats._count}
+      - Toplam Ciro: ${Number(stats._sum.totalAmount || 0).toLocaleString('tr-TR')} TL
+      - Toplam Müşteri: ${totalCustomers}
+      - Kritik Gecikmiş Ödemeler: ${pendingOverdue.map(p => `${p.order.customer.user.name} (${Number(p.amount).toLocaleString('tr-TR')} TL)`).join(', ')}
+      - Bazı Riskli Müşteriler: ${atRiskNames.join(', ')}
       
       GÖREVİN:
       Erkan Bey sana soru sorduğunda bu verilere dayanarak ona cevap ver. 
-      Eğer borçlu birini sorarsa yukarıdaki listeden bul. 
-      Eğer "Bugün ne yapmalıyım?" derse, önce Risk grubundakileri aramasını veya gecikmiş ödemeleri toplamasını nazikçe öner.
+      Lütfen cevaplarını kısa ve öz tut, Erkan Bey meşgul bir iş adamı.
+      Eğer borçlu birini sorarsa yukarıdaki listeden bulmaya çalış. Listede yoksa "Listemdeki kritik sızıntılar arasında görünmüyor ama cari hesaptan kontrol edebilirim" de.
     `
 
-    const chat = model.startChat({
+    // Gemini Başlatma
+    const genAI = new GoogleGenerativeAI(apiKey)
+    const geminiModel = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
+
+    const chat = geminiModel.startChat({
       history: [
         { role: 'user', parts: [{ text: contextString }] },
-        { role: 'model', parts: [{ text: 'Anlaşıldı Erkan Bey! Ben hazırım. Dükkanın tüm verileri elimde. Size nasıl yardımcı olabilirim? Hangi müşteriyi soracaksınız veya bugünkü planınızı mı yapalım?' }] },
+        { role: 'model', parts: [{ text: 'Anlaşıldı Erkan Bey! Ben hazırım. Dükkanın özet verileri elimde. Size nasıl yardımcı olabilirim? Hangi müşteriyi soracaksınız veya bugünkü planınızı mı yapalım?' }] },
         ...history.map((h: any) => ({
           role: h.role === 'user' ? 'user' : 'model',
-          parts: [{ text: h.content }]
+          parts: [{ text: String(h.content) }]
         }))
       ]
     })
 
     const result = await chat.sendMessage(message)
-    const response = await result.response
-    const text = response.text()
+    const text = result.response.text()
 
     return NextResponse.json({ content: text })
   } catch (error: any) {
-    console.error('Chat error:', error)
-    return NextResponse.json({ error: 'AI şu an meşgul, lütfen birazdan dene.' }, { status: 500 })
+    console.error('Chat API Detailed Error:', error)
+    
+    // Daha açıklayıcı hata mesajları
+    let errorMsg = 'AI şu an meşgul, lütfen birazdan tekrar deneyin.'
+    if (error?.message?.includes('API key')) errorMsg = 'AI anahtarı (GEMINI_API_KEY) hatalı veya süresi dolmuş.'
+    if (error?.message?.includes('SAFETY')) errorMsg = 'Sorunuz güvenlik filtrelerine takıldı. Lütfen farklı şekilde sorun.'
+
+    return NextResponse.json({ 
+      error: errorMsg,
+      debug: process.env.NODE_ENV === 'development' ? error?.message : undefined 
+    }, { status: 500 })
   }
 }
