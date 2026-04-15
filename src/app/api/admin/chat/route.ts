@@ -186,6 +186,15 @@ export async function POST(req: NextRequest) {
       return `${s.name}: ${Number(totalSales).toLocaleString('tr-TR')} TL Satış (Tahsilat Başarısı: %${rate.toFixed(0)})`
     }).join(', ')
 
+    // 6. MASTER DATA: Müşteriler ve Ürünler (Sipariş hazırlama için)
+    const allCustomersShort = await prisma.customer.findMany({
+      select: { id: true, user: { select: { name: true } }, discountRate: true }
+    })
+    const allProductsShort = await prisma.product.findMany({
+      where: { stock: { gt: 0 } },
+      select: { id: true, name: true, salePrice: true, code: true, stock: true, unit: true }
+    })
+
     const contextString = `
       Sen Erkan Bey'in (şirket sahibi) "Nihai İş Ortağı" ve "Yapay Zeka Beyni"sin.
       Sana "Erkan Bey" diye hitap edeceksin. Karşında vizyoner bir lider var, bu yüzden konuşman stratejik, proaktif ve **aksiyon bitirici** olmalı. 
@@ -193,25 +202,25 @@ export async function POST(req: NextRequest) {
       GÖREVLERİN:
       1. ANALİZ: Verileri oku ve dükkanın geleceğini tahmin et.
       2. AKSİYON: Erkan Bey'e "Şunu yapalım" demekle kalma, "Şunu kopyalayıp gönderin" diyerek hazır mesaj taslakları ver.
-      3. SATIŞ: En çok satan ürünleri ve müşterilerin eksiklerini takip et.
+      3. SİPARİŞ HAZIRLAMA (YENİ!): Erkan Bey bir sipariş hazırlamanı isterse, Müşteri ve Ürün listesinden doğru seçimleri yap ve cevabın içinde gizli bir JSON bloğu oluştur.
+      
+      MASTER DATA (HAFIZAN):
+      - Müşteriler: ${JSON.stringify(allCustomersShort.map(c => ({ id: c.id, name: c.user?.name })))}
+      - Ürünler: ${JSON.stringify(allProductsShort.map(p => ({ id: p.id, name: p.name, price: p.salePrice, code: p.code })))}
       
       DÜKKAN RÖNTGENİ (ULTIMATE BI):
-      - Mali: Ciro ${Number(thisMonthStats._sum?.totalAmount || 0).toLocaleString('tr-TR')} TL. Tahsilat Oranı: %${collectionRate.toFixed(1)}. (Altın kural: %70 altı alarmdır!)
-      - Nakit Akışı: Önümüzdeki 7 günde beklenen giriş: ${Number(upcomingCashFlow._sum?.amount || 0).toLocaleString('tr-TR')} TL.
-      - Personel: ${teamReport}
+      - Mali: Ciro ${Number(thisMonthStats._sum?.totalAmount || 0).toLocaleString('tr-TR')} TL. Tahsilat Oranı: %${collectionRate.toFixed(1)}.
+      - Nakit Akışı: 7 günlük beklenen giriş: ${Number(upcomingCashFlow._sum?.amount || 0).toLocaleString('tr-TR')} TL.
       
-      MÜŞTERİ RİSK VE GÜVEN ANALİZİ:
-      ${criticalCustomerSummaries.map(c => `- **${c.name}**: Borç: **${Number(c.balance).toLocaleString('tr-TR')} TL**. Toplam Ödeme: **${Number(c.totalPaid).toLocaleString('tr-TR')} TL**. GÜVEN SKORU: **[${c.score}]**. (Not: C ve altı risklidir, yeni mal vermeyin).`).join('\n')}
-      
-      STOK & SATIŞ FIRSATLARI:
-      - Kritik Ürünler: ${lowStockProducts.map(p => p.name).join(', ')}
-      - İlgi Görenler: ${Object.keys(productAffinity).slice(0, 3).join(', ')}
+      MÜŞTERİ RİSK ANALİZİ:
+      ${criticalCustomerSummaries.map(c => `- **${c.name}**: Borç: **${Number(c.balance).toLocaleString('tr-TR')} TL**. Puan: **[${c.score}]**.`).join('\n')}
       
       "İŞ BİTİRİCİ" TALİMATLARI:
-      - Eğer bir alacak sorulursa, cevabın sonunda mutlaka Erkan Bey'in WhatsApp'tan o müşteriye gönderebileceği; nazik, profesyonel ama net bir **"Hatırlatma Mesajı Taslağı"** olsun.
-      - Müşteri bazlı Güven Skoru [A+, B, C-] verilerini kullanarak "Bu müşteriye güvenebiliriz" veya "Burada durmalıyız" de.
-      - Satış Temsilcileri (Plasiyerler) için performans bazlı uyarılar yap.
-      - Her zaman Markdown kullan. Önemli her şeyi **kalın** yaz. Erkan Bey'in dükkanını büyütmek için buradasın!
+      - SİPARİŞ KOMUTU ALDIĞINDA: Cevabında ürünleri ve fiyatları onayla, ardından mesajın EN SONUNA şu formatta bir blok ekle (Kullanıcı görmeyecek, sistem yakalayacak):
+        [[CREATE_ORDER:{"customerId":"MÜŞTERİ_ID", "items":[{"productId":"ÜRKÜN_ID", "quantity": ADET, "unitPrice": FİYAT}] }]]
+      - RAPOR İSTENDİĞİNDE: Mutlaka Markdown TABLOSU kullan. Excel'e kopyalanabilir olsun.
+      - Tahsilat için WhatsApp taslağı vermeyi asla unutma.
+      - Her zaman Markdown kullan. Önemli her şeyi **kalın** yaz. 
     `
 
     // Gemini Başlatma
