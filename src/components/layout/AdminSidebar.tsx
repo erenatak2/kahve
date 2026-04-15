@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { signOut } from 'next-auth/react'
 import { cn } from '@/lib/utils'
 import { useState, useEffect, useRef, memo, startTransition, useCallback } from 'react'
@@ -131,6 +131,7 @@ SidebarLink.displayName = 'SidebarLink'
 
 export function AdminSidebar({ user, onClose }: { user: { name?: string; email?: string; role?: string }; onClose?: () => void }) {
   const pathname = usePathname()
+  const router = useRouter()
   const [counts, setCounts] = useState<BadgeCounts>({ orders: 0, notifications: 0, customers: 0, reminders: 0 })
   const [seenCounts, setSeenCounts] = useState<BadgeCounts>({ orders: 0, notifications: 0, customers: 0, reminders: 0 })
   const [soundEnabled, setSoundEnabled] = useState(true)
@@ -145,14 +146,16 @@ export function AdminSidebar({ user, onClose }: { user: { name?: string; email?:
     if (now - lastClickTime.current < 150) return
     lastClickTime.current = now
     
+    // Instant action on press
     startTransition(() => {
       setPendingHref(href)
+      router.push(href)
     })
     
     if (onClose) {
       setTimeout(onClose, 50)
     }
-  }, [onClose])
+  }, [onClose, router])
 
   // Clear pending state when navigated
   useEffect(() => {
