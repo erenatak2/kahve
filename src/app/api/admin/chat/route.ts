@@ -55,12 +55,12 @@ export async function POST(req: NextRequest) {
     // Riskli isimleri ayıkla
     const atRiskNames = atRiskSamples
       .filter(c => {
-        if (!c.orders[0]) return false
+        if (!c.orders || !c.orders[0]) return false
         const lastOrder = new Date(c.orders[0].createdAt)
         const daysSince = (Date.now() - lastOrder.getTime()) / (1000 * 60 * 60 * 24)
         return daysSince > (c.avgOrderDays || 30) * 1.3
       })
-      .map(c => c.user.name)
+      .map(c => c.user?.name || 'Bilinmeyen Müşteri')
       .slice(0, 10) // Sadece ilk 10'unu prompt'a ekle
 
     const contextString = `
@@ -69,9 +69,9 @@ export async function POST(req: NextRequest) {
       
       ŞİRKET DURUMU (ÖZET VERİLER):
       - Toplam Sipariş: ${stats._count}
-      - Toplam Ciro: ${Number(stats._sum.totalAmount || 0).toLocaleString('tr-TR')} TL
+      - Toplam Ciro: ${Number(stats._sum?.totalAmount || 0).toLocaleString('tr-TR')} TL
       - Toplam Müşteri: ${totalCustomers}
-      - Kritik Gecikmiş Ödemeler: ${pendingOverdue.map(p => `${p.order.customer.user.name} (${Number(p.amount).toLocaleString('tr-TR')} TL)`).join(', ')}
+      - Kritik Gecikmiş Ödemeler: ${pendingOverdue.map(p => `${p.order?.customer?.user?.name || 'Bilinmeyen'} (${Number(p.amount || 0).toLocaleString('tr-TR')} TL)`).join(', ')}
       - Bazı Riskli Müşteriler: ${atRiskNames.join(', ')}
       
       GÖREVİN:
@@ -90,13 +90,14 @@ export async function POST(req: NextRequest) {
         { role: 'model', parts: [{ text: 'Anlaşıldı Erkan Bey! Ben hazırım. Dükkanın özet verileri elimde. Size nasıl yardımcı olabilirim? Hangi müşteriyi soracaksınız veya bugünkü planınızı mı yapalım?' }] },
         ...history.map((h: any) => ({
           role: h.role === 'user' ? 'user' : 'model',
-          parts: [{ text: String(h.content) }]
+          parts: [{ text: String(h.content || '') }]
         }))
       ]
     })
 
     const result = await chat.sendMessage(message)
-    const text = result.response.text()
+    const response = await result.response
+    const text = response.text()
 
     return NextResponse.json({ content: text })
   } catch (error: any) {
@@ -104,12 +105,20 @@ export async function POST(req: NextRequest) {
     
     // Daha açıklayıcı hata mesajları
     let errorMsg = 'AI şu an meşgul, lütfen birazdan tekrar deneyin.'
-    if (error?.message?.includes('API key')) errorMsg = 'AI anahtarı (GEMINI_API_KEY) hatalı veya süresi dolmuş.'
-    if (error?.message?.includes('SAFETY')) errorMsg = 'Sorunuz güvenlik filtrelerine takıldı. Lütfen farklı şekilde sorun.'
+    const errorMessage = error?.message?.toLowerCase() || ''
+    
+    if (errorMessage.includes('api key') || errorMessage.includes('api_key_invalid')) {
+      errorMsg = 'AI anahtarı (GEMINI_API_KEY) hatalı veya geçersiz. Lütfen ayarları kontrol edin.'
+    } else if (errorMessage.includes('safety')) {
+      errorMsg = 'Sorunuz güvenlik filtrelerine takıldı. Lütfen farklı şekilde sorun.'
+    } else if (errorMessage.includes('quota') || errorMessage.includes('rate limit')) {
+      errorMsg = 'AI kullanım kotası doldu. Lütfen biraz bekleyin.'
+    }
 
     return NextResponse.json({ 
       error: errorMsg,
-      debug: process.env.NODE_ENV === 'development' ? error?.message : undefined 
+      debug: process.env.NODE_ENV === 'development' ? error?.message : undefined,
+      type: error?.name || 'Error'
     }, { status: 500 })
   }
 }
