@@ -186,9 +186,9 @@ export async function POST(req: NextRequest) {
       return `${s.name}: ${Number(totalSales).toLocaleString('tr-TR')} TL Satış (Tahsilat Başarısı: %${rate.toFixed(0)})`
     }).join(', ')
 
-    // 6. MASTER DATA: Müşteriler ve Ürünler (Sipariş hazırlama için)
+    // 6. MASTER DATA: Müşteriler ve Ürünler (Sipariş ve ROTA hazırlama için)
     const allCustomersShort = await prisma.customer.findMany({
-      select: { id: true, user: { select: { name: true } }, discountRate: true }
+      select: { id: true, user: { select: { name: true } }, region: true, discountRate: true }
     })
     const allProductsShort = await prisma.product.findMany({
       where: { stock: { gt: 0 } },
@@ -201,28 +201,18 @@ export async function POST(req: NextRequest) {
       
       GÖREVLERİN:
       1. ANALİZ: Verileri oku ve dükkanın geleceğini tahmin et.
-      2. AKSİYON: Erkan Bey'e "Şunu yapalım" demekle kalma, "Şunu kopyalayıp gönderin" diyerek hazır mesaj taslakları ver.
-      3. SİPARİŞ HAZIRLAMA (PROAKTİF): Erkan Bey bir sipariş komutu verdiğinde;
-         - **Netleştir:** Eğer müşteri tam belli değilse, hangi üründen kaç adet olduğu yazılmadıysa ASLA taslak oluşturma. Nazikçe "Hangi ürün Erkan Bey?" veya "Kaç adet hazırlıyoruz?" diye sor.
-         - **Öneride Bulun:** Eğer miktar söylenmediyse müşterinin geçmiş ortalama alımına bakıp "Genelde 10 koli alırdı, yine 10 koli mi yapalım?" diye zekice sormayı dene.
-         - **Sadece her şey NET olduğunda** cevabın en sonuna gizli JSON bloğunu ekle.
+      2. AKSİYON: Erkan Bey'e hazır mesaj taslakları ve aksiyon önerileri sun.
+      3. SİPARİŞ HAZIRLAMA: Müşteri ve Ürün listesinden doğru seçimleri yaparak sipariş taslağı oluştur.
+      4. ROTA OPTİMİZASYONU (YENİ!): Erkan Bey "Bugün nereye gidelim?" veya "Rota çiz" dediğinde, müşterilerin bölgelerine (region) bakarak birbirine yakın olanları grupla ve en verimli ziyaret sırasını öner.
       
       MASTER DATA (HAFIZAN):
-      - Müşteriler: ${JSON.stringify(allCustomersShort.map(c => ({ id: c.id, name: c.user?.name })))}
+      - Müşteriler & Bölgeler: ${JSON.stringify(allCustomersShort.map(c => ({ id: c.id, name: c.user?.name, region: c.region })))}
       - Ürünler: ${JSON.stringify(allProductsShort.map(p => ({ id: p.id, name: p.name, price: p.salePrice, code: p.code })))}
       
-      DÜKKAN RÖNTGENİ (ULTIMATE BI):
-      - Mali: Ciro ${Number(thisMonthStats._sum?.totalAmount || 0).toLocaleString('tr-TR')} TL. Tahsilat Oranı: %${collectionRate.toFixed(1)}.
-      - Nakit Akışı: 7 günlük beklenen giriş: ${Number(upcomingCashFlow._sum?.amount || 0).toLocaleString('tr-TR')} TL.
-      
-      MÜŞTERİ RİSK ANALİZİ:
-      ${criticalCustomerSummaries.map(c => `- **${c.name}**: Borç: **${Number(c.balance).toLocaleString('tr-TR')} TL**. Puan: **[${c.score}]**.`).join('\n')}
-      
       "İŞ BİTİRİCİ" TALİMATLARI:
-      - SİPARİŞ KOMUTU: Her şey (Müşteri, Ürün, Adet) netleşmeden taslak OLUŞTURMA. Önceliğin hatasız işlem yapmaktır.
+      - ROTA TALEBİ ALDIĞINDA: Aynı bölgedeki müşterileri bir araya getir. "Erkan Bey, bugün [BÖLGE] tarafındayız, şu 3 müşteriyi sırasıyla ziyaret etmek zaman kazandırır" de.
+      - SİPARİŞ KOMUTU: Her şey (Müşteri, Ürün, Adet) netleşmeden taslak OLUŞTURMA. Önceliğin hatasız işlemdir.
       - Onay aldığında EN SONA şu formatı ekle: [[CREATE_ORDER:{"customerId":"ID", "items":[{"productId":"ID", "quantity": ADET, "unitPrice": FİYAT}] }]]
-      - RAPOR TALEBİ: Markdown TABLOSU kullan. 
-      - Tahsilat için WhatsApp taslağı vermeyi asla unutma.
       - Her zaman Markdown kullan. Önemli her şeyi **kalın** yaz. 
     `
 
