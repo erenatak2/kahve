@@ -5,9 +5,16 @@ import { prisma } from '@/lib/prisma'
 import { GoogleGenerativeAI } from '@google/generative-ai'
 
 export async function POST(req: NextRequest) {
+  console.log('[CHAT API] Request received at', new Date().toISOString())
+  
   try {
     const session = await getServerSession(authOptions)
-    if (!session) return NextResponse.json({ error: 'Yetkisiz' }, { status: 401 })
+    console.log('[CHAT API] Session:', session ? 'Authenticated' : 'No session')
+    
+    if (!session) {
+      console.log('[CHAT API] Returning 401 - No session')
+      return NextResponse.json({ error: 'Yetkisiz' }, { status: 401 })
+    }
 
     // Body kontrolü
     const body = await req.json().catch(() => ({}))
@@ -19,38 +26,63 @@ export async function POST(req: NextRequest) {
 
     // API Key Kontrolü (Handler içinde taze okuma)
     const apiKey = process.env.GEMINI_API_KEY
+    console.log('[CHAT API] GEMINI_API_KEY:', apiKey ? `Present (${apiKey.substring(0, 10)}...)` : 'MISSING')
+    
     if (!apiKey) {
-      console.error('GEMINI_API_KEY is missing in environment variables')
+      console.error('[CHAT API] GEMINI_API_KEY is missing in environment variables')
       return NextResponse.json({ error: 'AI anahtarı sunucuda bulunamadı. Lütfen ayarları kontrol edin.' }, { status: 500 })
     }
 
     // 1. CRM Bağlamını Topla (Context) - OPTİMİZE EDİLDİ
-    const [
-      stats,
-      pendingOverdue,
-      atRiskSamples
-    ] = await Promise.all([
-      prisma.order.aggregate({
+    let stats: any = { _count: 0, _sum: { totalAmount: 0 } }
+    let pendingOverdue: any[] = []
+    let atRiskSamples: any[] = []
+
+    try {
+      console.log('[CHAT API] Querying stats...')
+      stats = await prisma.order.aggregate({
         _count: true,
         _sum: { totalAmount: true }
-      }),
-      // Sadece en kritik 10 gecikmiş ödeme
-      prisma.payment.findMany({
+      })
+      console.log('[CHAT API] Stats result:', stats)
+    } catch (e: any) {
+      console.error('[CHAT API] Stats query failed:', e.message || e)
+    }
+
+    try {
+      console.log('[CHAT API] Querying pending overdue payments...')
+      pendingOverdue = await prisma.payment.findMany({
         where: { status: 'GECIKTI' },
         take: 10,
         orderBy: { dueDate: 'asc' },
         include: { order: { include: { customer: { include: { user: true } } } } }
-      }),
-      // Risk grubundan 5 örnek isim (Context şişmesin diye)
-      prisma.customer.findMany({
+      })
+      console.log('[CHAT API] Pending overdue count:', pendingOverdue.length)
+    } catch (e: any) {
+      console.error('[CHAT API] Pending overdue query failed:', e.message || e)
+    }
+
+    try {
+      console.log('[CHAT API] Querying at-risk customers...')
+      atRiskSamples = await prisma.customer.findMany({
         where: { isActive: true },
         take: 50,
         include: { user: true, orders: { orderBy: { createdAt: 'desc' }, take: 1 } }
       })
-    ])
+      console.log('[CHAT API] At-risk samples count:', atRiskSamples.length)
+    } catch (e: any) {
+      console.error('[CHAT API] At-risk customers query failed:', e.message || e)
+    }
 
     // Toplam Müşteri Sayısı (Hafif sorgu)
-    const totalCustomers = await prisma.customer.count()
+    let totalCustomers = 0
+    try {
+      console.log('[CHAT API] Counting customers...')
+      totalCustomers = await prisma.customer.count()
+      console.log('[CHAT API] Total customers:', totalCustomers)
+    } catch (e: any) {
+      console.error('[CHAT API] Customer count query failed:', e.message || e)
+    }
 
     // Riskli isimleri ayıkla
     const atRiskNames = atRiskSamples
@@ -95,12 +127,27 @@ export async function POST(req: NextRequest) {
       ]
     })
 
-    const result = await chat.sendMessage(message)
-    const text = result.response.text()
-
-    return NextResponse.json({ content: text })
+    try {
+      console.log('[CHAT API] Sending message to Gemini...')
+      const result = await chat.sendMessage(message)
+      const text = result.response.text()
+      console.log('[CHAT API] Gemini response received, length:', text.length)
+      return NextResponse.json({ content: text })
+    } catch (geminiError: any) {
+      console.error('[CHAT API] Gemini API error:', geminiError.message || geminiError)
+      console.error('[CHAT API] Full error object:', JSON.stringify(geminiError, null, 2))
+      let geminiErrorMsg = 'AI servisi şu an yanıt vermiyor.'
+      if (geminiError?.message?.includes('API key')) {
+        geminiErrorMsg = 'AI anahtarı (GEMINI_API_KEY) hatalı veya süresi dolmuş.'
+      } else if (geminiError?.message?.includes('quota')) {
+        geminiErrorMsg = 'AI kotası dolmuş. Lütfen daha sonra tekrar deneyin.'
+      }
+      return NextResponse.json({ error: geminiErrorMsg, debug: geminiError?.message }, { status: 500 })
+    }
   } catch (error: any) {
-    console.error('Chat API Detailed Error:', error)
+    console.error('[CHAT API] Top-level error:', error)
+    console.error('[CHAT API] Error message:', error?.message)
+    console.error('[CHAT API] Error stack:', error?.stack)
     
     // Daha açıklayıcı hata mesajları
     let errorMsg = 'AI şu an meşgul, lütfen birazdan tekrar deneyin.'
