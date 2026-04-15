@@ -290,7 +290,7 @@ export function AdminSidebar({ user, onClose }: { user: { name?: string; email?:
               prefetch={true}
               onPointerDown={() => setPendingHref(item.href)}
               className={cn(
-                'flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium active:scale-[0.98]',
+                'flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 active:scale-[0.98]',
                 isActive
                   ? 'bg-blue-50 text-blue-700 shadow-sm'
                   : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 border border-transparent hover:border-gray-100'

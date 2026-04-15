@@ -44,7 +44,7 @@ export function AdminShell({ user, children }: { user: { name?: string; email?: 
           </div>
         </div>
 
-        <main className="flex-1 overflow-auto">
+        <main className="flex-1 overflow-auto animate-in fade-in duration-300">
           {children}
         </main>
       </div>
