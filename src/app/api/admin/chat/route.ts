@@ -40,7 +40,10 @@ export async function POST(req: NextRequest) {
       totalCustomers,
       topProducts,
       lowStockProducts,
-      loyalCustomers
+      loyalCustomers,
+      recentCallLogs,
+      upcomingReminders,
+      regionalDistribution
     ] = await Promise.all([
       // Genel Özet
       prisma.order.aggregate({
@@ -73,25 +76,32 @@ export async function POST(req: NextRequest) {
       prisma.customer.findMany({
         where: { isActive: true },
         take: 30,
-        include: { user: true, orders: { orderBy: { createdAt: 'desc' }, take: 3 } }
+        include: { user: true, orders: { orderBy: { createdAt: 'desc' }, take: 1 } }
       }),
       prisma.customer.count(),
-      // En Çok Satan Ürünler
-      prisma.product.findMany({
-        where: { isActive: true },
+      // Ürün Bilgileri
+      prisma.product.findMany({ where: { isActive: true }, take: 5, orderBy: { stock: 'desc' } }),
+      prisma.product.findMany({ where: { stock: { lte: 10 }, isActive: true }, take: 5 }),
+      // Müşteri Segmentleri
+      prisma.customer.findMany({ where: { isActive: true, notes: { contains: 'VİP' } }, take: 5, include: { user: true } }),
+      // CRM: Son 5 Görüşme Notu
+      prisma.callLog.findMany({
         take: 5,
-        orderBy: { stock: 'desc' } // Örnek olarak stok üzerinden, normalde sipariş kalemlerinden sayılmalı
+        orderBy: { calledAt: 'desc' },
+        include: { customer: { include: { user: true } } }
       }),
-      // Kritik Stok Uyarıları
-      prisma.product.findMany({
-        where: { stock: { lte: 10 }, isActive: true },
-        take: 5
-      }),
-      // Sadık ve Düzenli Müşteriler
-      prisma.customer.findMany({
-        where: { isActive: true, notes: { contains: 'VİP' } }, // Veya sipariş sayısına göre
+      // CRM: Yaklaşan Hatırlatmalar
+      prisma.order.findMany({
+        where: { reminderAt: { gte: now } },
         take: 5,
-        include: { user: true }
+        orderBy: { reminderAt: 'asc' },
+        include: { customer: { include: { user: true } } }
+      }),
+      // Bölgesel Dağılım
+      prisma.customer.groupBy({
+        by: ['region'],
+        _count: { id: true },
+        where: { isActive: true }
       })
     ])
 
@@ -118,30 +128,30 @@ export async function POST(req: NextRequest) {
       Sana "Erkan Bey" diye hitap edeceksin. Karşında çok tecrübeli bir iş adamı var, bu yüzden konuşman son derece kurumsal, vakur, dürüst ve vizyoner olmalı. 
       Lafı uzatmadan, doğrudan veriye dayalı stratejik analizler sunmalısın.
       
-      GÖREVİN: Dükkanı Erkan Bey ile birlikte yönetmek. Sadece bilgi vermek yetmez; riskleri önceden sezmeli, stok krizlerini engellemeli ve satış artırıcı hamleler önermelisin.
+      GÖREVİN: Dükkanı sadece rakamla değil, "İnsan İlişkileri" (CRM) ve "Operasyonel Hatırlatmalar" ile bütünsel yönetmek.
       
       DÜKKAN VERİ ANALİZİ (GİZLİ PANEL):
       1. FİNANSAL:
          - Ciro: Bu ay ${Number(thisMonthStats._sum?.totalAmount || 0).toLocaleString('tr-TR')} TL (Geçen ay: ${Number(lastMonthStats._sum?.totalAmount || 0).toLocaleString('tr-TR')} TL).
-         - Tahsilat Gücü: Toplam ${Number(paidAmount).toLocaleString('tr-TR')} TL toplandı. Tahsilat oranımız %${collectionRate.toFixed(1)}.
-         - Riskli Alacaklar: ${Number(overdueAmount).toLocaleString('tr-TR')} TL vadesi geçmiş borç var.
+         - Tahsilat Gücü: Toplam ${Number(paidAmount).toLocaleString('tr-TR')} TL toplandı. Tahsilat oranımız %${collectionRate.toFixed(1)}. Alacağın ${Number(overdueAmount).toLocaleString('tr-TR')} TL'si vadesi geçmiş!
       
-      2. STOK VE ÜRÜN:
-         - Kritik Stok (Acil Tedarik Lazım): ${lowStockProducts.map(p => `${p.name} (${p.stock} ${p.unit})`).join(', ')}
-         - Popüler Ürünler: ${topProducts.map(p => p.name).join(', ')}
+      2. STOK DURUMU:
+         - Acil Tedarik Lazım: ${lowStockProducts.map(p => `${p.name} (${p.stock} ${p.unit})`).join(', ')}
       
-      3. MÜŞTERİ PORTFÖYÜ:
-         - Toplam Müşteri: ${totalCustomers}
-         - Kritik Borçlular: ${pendingOverdue.map(p => `${p.order?.customer?.user?.name || 'Müşteri'} (${Number(p.amount || 0).toLocaleString('tr-TR')} TL)`).join(', ')}
-         - Kaybedilmek Üzere Olanlar: ${atRiskList.map(c => `${c.name} (Son sipariş: ${c.last})`).join(', ')}
-         - Sadık/VİP Müşteriler: ${loyalCustomers.map(c => c.user?.name).join(', ')}
+      3. CRM VE OPERASYON (YENİ!):
+         - Son Görüşmeler: ${recentCallLogs.map(l => `${l.customer?.user?.name}: ${l.note} (${l.outcome})`).join('\n')}
+         - Yaklaşan Randevular/Hatırlatmalar: ${upcomingReminders.map(r => `${r.customer?.user?.name}: ${r.reminderNote} (Tarih: ${r.reminderAt?.toLocaleDateString('tr-TR')})`).join('\n')}
+         - Bölgesel Gücümüz: ${regionalDistribution.map(r => `${r.region || 'Bilinmeyen'}: ${r._count.id} Müşteri`).join(', ')}
+      
+      4. MÜŞTERİ RİSKLERİ:
+         - Borçlu ve Kritik: ${pendingOverdue.map(p => `${p.order?.customer?.user?.name || 'Müşteri'} (${Number(p.amount || 0).toLocaleString('tr-TR')} TL)`).join(', ')}
+         - Uyuyanlar: ${atRiskList.map(c => `${c.name} (Son sipariş: ${c.last})`).join(', ')}
       
       STRATEJİK TALİMATLAR:
-      - Eğer tahsilat oranı düşükse Erkan Bey'e nakit akışı revizyonu öner.
-      - Stokları bitmek üzere olan ürünler için "Satışları buralara yönlendirmeyelim veya acil alım yapalım" de.
-      - Siparişi kesen müşteriler için "Bu hafta bizzat ziyaret edelim mi?" gibi saha önerileri ver.
-      - Erkan Bey'e her zaman "Yol arkadaşı" gibi yaklaş ama hiyerarşiyi (Erkan Bey asıl patrondur) asla bozma.
-      - Cevaplarında mutlaka Markdown kullan, önemli kısımları **kalın** yap.
+      - Erkan Bey "Bugün ne yapalım?" derse, hem tahsilatları hem de yaklaşan randevuları (randevu listesindekileri) birleştirip bir "Günlük Plan" sun.
+      - Son görüşmelerdeki negatif durumları (örneğin "ulaşılamadı") fark et ve "Bunu tekrar arayalım" de.
+      - Bölgesel dağılıma bakarak, "Şu bölgede az müşterimiz var, oraya mı odaklansak?" gibi büyüme önerileri ver.
+      - Cevaplarında mutlaka Markdown kullan, önemli kısımları **kalın** yap ve Erkan Bey'in vaktini çalmadan net konuş.
     `
 
     // Gemini Başlatma
