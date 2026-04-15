@@ -84,48 +84,82 @@ export async function POST(req: NextRequest) {
       console.error('[CHAT API] Customer count query failed:', e.message || e)
     }
 
-    // Riskli isimleri ayıkla
-    const atRiskNames = atRiskSamples
-      .filter(c => {
-        if (!c.orders[0]) return false
-        const lastOrder = new Date(c.orders[0].createdAt)
-        const daysSince = (Date.now() - lastOrder.getTime()) / (1000 * 60 * 60 * 24)
-        return daysSince > (c.avgOrderDays || 30) * 1.3
-      })
-      .map(c => c.user.name)
-      .slice(0, 10) // Sadece ilk 10'unu prompt'a ekle
+    // Riskli isimleri ayıkla - güvenli null kontrolleri
+    let atRiskNames: string[] = []
+    try {
+      atRiskNames = atRiskSamples
+        .filter(c => {
+          if (!c || !c.orders || !c.orders[0]) return false
+          if (!c.user || !c.user.name) return false
+          const lastOrder = new Date(c.orders[0].createdAt)
+          const daysSince = (Date.now() - lastOrder.getTime()) / (1000 * 60 * 60 * 24)
+          return daysSince > (c.avgOrderDays || 30) * 1.3
+        })
+        .map(c => c.user?.name || 'Bilinmiyor')
+        .slice(0, 10)
+    } catch (e: any) {
+      console.error('[CHAT API] At-risk names filter failed:', e.message)
+    }
 
+    // Gecikmiş ödemeleri güvenli şekilde formatla
+    let overdueText = 'Yok'
+    try {
+      overdueText = pendingOverdue.length > 0 
+        ? pendingOverdue.map(p => {
+            const customerName = p?.order?.customer?.user?.name || 'Bilinmiyor'
+            const amount = Number(p?.amount || 0).toLocaleString('tr-TR')
+            return `${customerName} (${amount} TL)`
+          }).join(', ')
+        : 'Yok'
+    } catch (e: any) {
+      console.error('[CHAT API] Overdue formatting failed:', e.message)
+      overdueText = 'Hata: ' + e.message
+    }
+
+    console.log('[CHAT API] Building context string...')
     const contextString = `
       Sen Erkan Bey'in (şirket sahibi) çok profesyonel, dürüst ve zeki bir plasiyer müdürü yardımcısısın. 
       Sana "Erkan Bey" diye hitap etmeni istiyoruz. Tonun nazik, saygılı ve iş odaklı olsun.
       
       ŞİRKET DURUMU (ÖZET VERİLER):
-      - Toplam Sipariş: ${stats._count}
-      - Toplam Ciro: ${Number(stats._sum.totalAmount || 0).toLocaleString('tr-TR')} TL
+      - Toplam Sipariş: ${stats?._count || 0}
+      - Toplam Ciro: ${Number(stats?._sum?.totalAmount || 0).toLocaleString('tr-TR')} TL
       - Toplam Müşteri: ${totalCustomers}
-      - Kritik Gecikmiş Ödemeler: ${pendingOverdue.map(p => `${p.order.customer.user.name} (${Number(p.amount).toLocaleString('tr-TR')} TL)`).join(', ')}
-      - Bazı Riskli Müşteriler: ${atRiskNames.join(', ')}
+      - Kritik Gecikmiş Ödemeler: ${overdueText}
+      - Bazı Riskli Müşteriler: ${atRiskNames.length > 0 ? atRiskNames.join(', ') : 'Yok'}
       
       GÖREVİN:
       Erkan Bey sana soru sorduğunda bu verilere dayanarak ona cevap ver. 
       Lütfen cevaplarını kısa ve öz tut, Erkan Bey meşgul bir iş adamı.
       Eğer borçlu birini sorarsa yukarıdaki listeden bulmaya çalış. Listede yoksa "Listemdeki kritik sızıntılar arasında görünmüyor ama cari hesaptan kontrol edebilirim" de.
     `
+    console.log('[CHAT API] Context string built, length:', contextString.length)
 
     // Gemini Başlatma
     const genAI = new GoogleGenerativeAI(apiKey)
     const geminiModel = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
 
-    const chat = geminiModel.startChat({
-      history: [
+    // Chat history oluştur - güvenli mapping
+    let chatHistory: any[] = []
+    try {
+      chatHistory = [
         { role: 'user', parts: [{ text: contextString }] },
         { role: 'model', parts: [{ text: 'Anlaşıldı Erkan Bey! Ben hazırım. Dükkanın özet verileri elimde. Size nasıl yardımcı olabilirim? Hangi müşteriyi soracaksınız veya bugünkü planınızı mı yapalım?' }] },
-        ...history.map((h: any) => ({
-          role: h.role === 'user' ? 'user' : 'model',
-          parts: [{ text: String(h.content) }]
+        ...(Array.isArray(history) ? history : []).map((h: any) => ({
+          role: h?.role === 'user' ? 'user' : 'model',
+          parts: [{ text: String(h?.content || '') }]
         }))
       ]
-    })
+      console.log('[CHAT API] Chat history built, items:', chatHistory.length)
+    } catch (e: any) {
+      console.error('[CHAT API] History build failed:', e.message)
+      chatHistory = [
+        { role: 'user', parts: [{ text: contextString }] },
+        { role: 'model', parts: [{ text: 'Anlaşıldı Erkan Bey! Ben hazırım.' }] }
+      ]
+    }
+
+    const chat = geminiModel.startChat({ history: chatHistory })
 
     try {
       console.log('[CHAT API] Sending message to Gemini...')
