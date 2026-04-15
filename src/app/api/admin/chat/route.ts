@@ -186,7 +186,7 @@ export async function POST(req: NextRequest) {
       return `${s.name}: ${Number(totalSales).toLocaleString('tr-TR')} TL Satış (Tahsilat Başarısı: %${rate.toFixed(0)})`
     }).join(', ')
 
-    // 6. MASTER DATA: Müşteriler ve Ürünler (Sipariş hazırlama için)
+    // 6. MASTER DATA & RECENT ACTIVITY
     const allCustomersShort = await prisma.customer.findMany({
       select: { id: true, user: { select: { name: true } }, discountRate: true }
     })
@@ -194,26 +194,29 @@ export async function POST(req: NextRequest) {
       where: { stock: { gt: 0 } },
       select: { id: true, name: true, salePrice: true, code: true, stock: true, unit: true }
     })
+    const recentOrders = await prisma.order.findMany({
+      take: 5,
+      orderBy: { createdAt: 'desc' },
+      include: { customer: { include: { user: { select: { name: true } }, salesRep: { select: { name: true } } } } }
+    })
 
     const contextString = `
       Sen Erkan Bey'in "Yapay Zeka Beyni"sin. Erkan Bey yoğun bir liderdir, bu yüzden mesajların **KISA, ÖZ ve NOKTA ATIŞI** olmalı. 
-      Lüzumsuz ders verme, sadece sorulana odaklan veya o anki işleme (sipariş vs.) odaklan.
+      
+      DÜKKANDA SON OLUP BİTENLER (ANLIK):
+      ${recentOrders.map(o => `- **${o.customer.user?.name}** için **${Number(o.totalAmount).toLocaleString('tr-TR')} TL** tutarında sipariş (Temsilci: ${o.customer.salesRep?.name || 'Yok'}).`).join('\n')}
       
       GÖREVLERİN:
-      1. ANALİZ: Sadece Erkan Bey "Durum nedir?" veya "Analiz et" dediğinde derin rapor ver. Diğer durumlarda rakamları sadece gerekliyse (risk varsa) kısa cümlelerle belirt.
-      2. SİPARİŞ HAZIRLAMA: Erkan Bey bir siparişi hazırlamanı istediğinde veya birinden sipariş geldiğini söylediğinde;
-         - **Sorgulayıcı Hafıza:** Müşteri/ürün/adet net değilse sadece "Hangi ürün?" veya "Kaç adet?" diye tek cümleyle sor.
-         - **Akıllı Öneriler:** Gerekiyorsa "Genelde 10 koli alırdı, yine o kadar mı yapalım?" de.
-         - Onay aldığında cevabın sonuna gizli JSON bloğunu ekle.
+      1. AKILLI TAKİP: Erkan Bey "Eren sipariş verdi" veya "Ödeme geldi" dediğinde, yukarıdaki SON OLUP BİTENLER listesine bak. İsmi (Eren, Ömer vs.) oradakilerle eşleştir. Eğer listede varsa "Hangi müşteri?" diye sorma, doğrudan "Listeye baktım, [Müşteri] için [Tutar] TL'lik siparişini gördüm, hayırlı olsun" de.
+      2. ANALİZ: Sadece "Analiz et" denirse rapor ver.
+      3. SİPARİŞ HAZIRLAMA: Eğer yeni bir taslak istenirse (listede yoksa), Sorgulayıcı Hafıza ve Akıllı Öneriler ile ilerle.
       
       MASTER DATA:
       - Müşteriler: ${JSON.stringify(allCustomersShort.map(c => ({ id: c.id, name: c.user?.name })))}
       - Ürünler: ${JSON.stringify(allProductsShort.map(p => ({ id: p.id, name: p.name, price: p.salePrice, code: p.code })))}
       
       TALİMATLAR:
-      - **Kısa Konuş:** Uzun paragraflardan kaçın. Eğer "Eren sipariş verdi" gibi bir girdi alırsan, sadece "Hangi müşteriye kaç adet?" diye odaklan.
-      - **Moral Bozma:** Satış temsilcilerinin performansını sadece sorulursa eleştir.
-      - **Nakit Akışı:** Alarm durumunu sadece "Analiz" istendiğinde vurgula. 
+      - **Yük Olma, Destek Ol:** Eğer veriler sistemde varsa Erkan Bey'e soru sorma, veriyi kendin bul.
       - Onay aldığında EN SONA: [[CREATE_ORDER:{"customerId":"ID", "items":[{"productId":"ID", "quantity": ADET, "unitPrice": FİYAT}] }]]
     `
 
