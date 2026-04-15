@@ -82,8 +82,8 @@ export async function POST(req: NextRequest) {
 
     // Gemini Başlatma
     const genAI = new GoogleGenerativeAI(apiKey)
-    // 'gemini-1.5-flash' yerine 'gemini-1.5-flash-latest' kullanarak 404 hatasını gidermeye çalışıyoruz
-    const geminiModel = genAI.getGenerativeModel({ model: 'gemini-1.5-flash-latest' })
+    // Orijinal modele (gemini-1.5-flash) geri dönüyoruz, çünkü artık geçerli bir anahtarımız var
+    const geminiModel = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
 
     const chat = geminiModel.startChat({
       history: [
@@ -108,19 +108,19 @@ export async function POST(req: NextRequest) {
     let errorMsg = 'AI şu an meşgul, lütfen birazdan tekrar deneyin.'
     const errorMessage = error?.message?.toLowerCase() || ''
     
-    if (errorMessage.includes('api key') || errorMessage.includes('api_key_invalid')) {
+    if (errorMessage.includes('api key' || errorMessage.includes('api_key_invalid'))) {
       errorMsg = 'AI anahtarı (GEMINI_API_KEY) hatalı veya geçersiz. Lütfen ayarları kontrol edin.'
     } else if (errorMessage.includes('safety')) {
       errorMsg = 'Sorunuz güvenlik filtrelerine takıldı. Lütfen farklı şekilde sorun.'
     } else if (errorMessage.includes('quota') || errorMessage.includes('rate limit')) {
       errorMsg = 'AI kullanım kotası doldu. Lütfen biraz bekleyin.'
     } else if (errorMessage.includes('404') || errorMessage.includes('not found')) {
-      errorMsg = 'AI modeli sunucuda bulunamadı. Model ismini (gemini-pro) olarak güncellemeyi deneyebiliriz.'
+      errorMsg = 'AI modeli (gemini-1.5-flash) bulunamadı. Lütfen sistemde bu modelin aktif olduğundan emin olun veya gemini-pro deneyin.'
     }
 
     return NextResponse.json({ 
       error: errorMsg,
-      debug: error?.message, // Hata ne olursa olsun detay verelim ki görebilelim
+      debug: error?.message, 
       type: error?.name || 'Error'
     }, { status: 500 })
   }
