@@ -43,115 +43,155 @@ export async function POST(req: NextRequest) {
       loyalCustomers,
       recentCallLogs,
       upcomingReminders,
-      regionalDistribution
+      regionalDistribution,
+      sellerStats,
+      upcomingCashFlow
     ] = await Promise.all([
-      // Genel Özet
-      prisma.order.aggregate({
-        _count: true,
-        _sum: { totalAmount: true }
-      }),
-      // Bu Ayki Performans
-      prisma.order.aggregate({
-        _sum: { totalAmount: true },
-        where: { createdAt: { gte: firstDayOfMonth } }
-      }),
-      // Geçen Ayki Performans
-      prisma.order.aggregate({
-        _sum: { totalAmount: true },
-        where: { createdAt: { gte: firstDayOfLastMonth, lte: lastDayOfLastMonth } }
-      }),
-      // Tahsilat Durumu
-      prisma.payment.groupBy({
-        by: ['status'],
-        _sum: { amount: true }
-      }),
-      // Kritik Gecikmiş Ödemeler
+      // Genel ve Aylık Özetler
+      prisma.order.aggregate({ _count: true, _sum: { totalAmount: true } }),
+      prisma.order.aggregate({ _sum: { totalAmount: true }, where: { createdAt: { gte: firstDayOfMonth } } }),
+      prisma.order.aggregate({ _sum: { totalAmount: true }, where: { createdAt: { gte: firstDayOfLastMonth, lte: lastDayOfLastMonth } } }),
+      
+      // Tahsilat Durumu (Genel)
+      prisma.payment.groupBy({ by: ['status'], _sum: { amount: true } }),
+      
+      // Kritik Alacaklılar ve Müşteri Detaylı Özet
       prisma.payment.findMany({
         where: { status: 'GECIKTI' },
-        take: 10,
+        take: 12,
         orderBy: { dueDate: 'asc' },
-        include: { order: { include: { customer: { include: { user: true } } } } }
+        include: { 
+          order: { 
+            include: { 
+              customer: { 
+                include: { 
+                  user: { select: { name: true } },
+                  orders: { select: { totalAmount: true } },
+                  paymentNotifications: { where: { status: 'ONAYLANDI' }, select: { amount: true } }
+                } 
+              } 
+            } 
+          } 
+        }
       }),
-      // Riskli Müşteriler (Siparişi kesenler)
+      
+      // Riskli Müşteriler
       prisma.customer.findMany({
         where: { isActive: true },
-        take: 30,
+        take: 20,
         include: { user: true, orders: { orderBy: { createdAt: 'desc' }, take: 1 } }
       }),
+      
       prisma.customer.count(),
+      
       // Ürün Bilgileri
       prisma.product.findMany({ where: { isActive: true }, take: 5, orderBy: { stock: 'desc' } }),
       prisma.product.findMany({ where: { stock: { lte: 10 }, isActive: true }, take: 5 }),
-      // Müşteri Segmentleri
-      prisma.customer.findMany({ where: { isActive: true, notes: { contains: 'VİP' } }, take: 5, include: { user: true } }),
-      // CRM: Son 5 Görüşme Notu
-      prisma.callLog.findMany({
-        take: 5,
-        orderBy: { calledAt: 'desc' },
-        include: { customer: { include: { user: true } } }
+      
+      // Müşteri Segmentleri (VİP)
+      prisma.customer.findMany({ 
+        where: { isActive: true, notes: { contains: 'VİP' } }, 
+        take: 5, 
+        include: { user: { select: { name: true } } } 
       }),
-      // CRM: Yaklaşan Hatırlatmalar
-      prisma.order.findMany({
-        where: { reminderAt: { gte: now } },
-        take: 5,
-        orderBy: { reminderAt: 'asc' },
-        include: { customer: { include: { user: true } } }
+      
+      // CRM
+      prisma.callLog.findMany({ take: 5, orderBy: { calledAt: 'desc' }, include: { customer: { include: { user: true } } } }),
+      prisma.order.findMany({ 
+        where: { reminderAt: { gte: now } }, 
+        take: 5, 
+        orderBy: { reminderAt: 'asc' }, 
+        include: { customer: { include: { user: true } } } 
       }),
-      // Bölgesel Dağılım
-      prisma.customer.groupBy({
-        by: ['region'],
-        _count: { id: true },
-        where: { isActive: true }
+      
+      // Bölgesel
+      prisma.customer.groupBy({ by: ['region'], _count: { id: true }, where: { isActive: true } }),
+      
+      // 4. Ekip Performansı (Plasiyer/Satıcı bazlı)
+      prisma.user.findMany({
+        where: { role: { in: ['SATICI', 'ADMIN'] } },
+        select: {
+          name: true,
+          sellerCustomers: {
+            select: {
+              orders: { select: { totalAmount: true } },
+              paymentNotifications: { where: { status: 'ONAYLANDI' }, select: { amount: true } }
+            }
+          }
+        }
+      }),
+      
+      // 5. Nakit Akışı Tahmini (Önümüzdeki 7 gün vadesi dolanlar)
+      prisma.payment.aggregate({
+        _sum: { amount: true },
+        where: { 
+          status: 'BEKLIYOR',
+          dueDate: { 
+            gte: now, 
+            lte: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000) 
+          }
+        }
       })
     ])
 
-    // Tahsilat rakamlarını işle
+    // Finansal rakamları temizle
     const paidAmount = paymentStats.find(p => p.status === 'ODENDI')?._sum.amount || 0
     const pendingAmount = paymentStats.find(p => p.status === 'BEKLIYOR')?._sum.amount || 0
     const overdueAmount = paymentStats.find(p => p.status === 'GECIKTI')?._sum.amount || 0
     const totalReceivable = pendingAmount + overdueAmount
     const collectionRate = paidAmount > 0 ? (paidAmount / (paidAmount + totalReceivable)) * 100 : 0
 
-    // Riskli isimleri ayıkla
-    const atRiskList = atRiskSamples
-      .filter(c => {
-        if (!c.orders || !c.orders[0]) return true
-        const lastOrder = new Date(c.orders[0].createdAt)
-        const daysSince = (Date.now() - lastOrder.getTime()) / (1000 * 60 * 60 * 24)
-        return daysSince > (c.avgOrderDays || 30) * 1.2
-      })
-      .map(c => ({ name: c.user?.name || 'Bilinmeyen', last: c.orders[0]?.createdAt.toLocaleDateString('tr-TR') || 'Yok' }))
-      .slice(0, 5)
+    // Müşteri bazlı özetleri hazırla (Ömer Faruk gibi sorular için)
+    const criticalCustomerSummaries = pendingOverdue.map(p => {
+      const cust = p.order?.customer
+      const totalBought = cust?.orders.reduce((sum, o) => sum + o.totalAmount, 0) || 0
+      const totalPaid = cust?.paymentNotifications.reduce((sum, pn) => sum + pn.amount, 0) || 0
+      return {
+        name: cust?.user?.name || 'Bilinmeyen',
+        outstanding: p.amount,
+        dueDate: p.dueDate?.toLocaleDateString('tr-TR'),
+        totalBought,
+        totalPaid,
+        balance: totalBought - totalPaid
+      }
+    })
+
+    // Ekip performansını işle
+    const teamReport = sellerStats.map(s => {
+      const totalSales = s.sellerCustomers.reduce((sum, c) => sum + c.orders.reduce((os, o) => os + o.totalAmount, 0), 0)
+      const totalCollected = s.sellerCustomers.reduce((sum, c) => sum + c.paymentNotifications.reduce((ps, p) => ps + p.amount, 0), 0)
+      return `${s.name}: ${Number(totalSales).toLocaleString('tr-TR')} TL Satış (Tahsilat: ${Number(totalCollected).toLocaleString('tr-TR')} TL)`
+    }).join(', ')
 
     const contextString = `
-      Sen Erkan Bey'in (şirket sahibi) Senior Satış ve Operasyon Direktörüsün. 
-      Sana "Erkan Bey" diye hitap edeceksin. Karşında çok tecrübeli bir iş adamı var, bu yüzden konuşman son derece kurumsal, vakur, dürüst ve vizyoner olmalı. 
-      Lafı uzatmadan, doğrudan veriye dayalı stratejik analizler sunmalısın.
+      Sen Erkan Bey'in (şirket sahibi) Stratejik İş Ortağı ve CFO Danışmanısın. 
+      Sana "Erkan Bey" diye hitap edeceksin. Ses tonun; son derece zeki, analitik, dürüst ve dükkanı bir "İsviçre Saati" gibi hatasız yönetmeye odaklı olmalı.
       
-      GÖREVİN: Dükkanı sadece rakamla değil, "İnsan İlişkileri" (CRM) ve "Operasyonel Hatırlatmalar" ile bütünsel yönetmek.
+      GÖREVİN: Dükkanın her hücresine (para, mal, insan, zaman) hakim olmak ve Erkan Bey'e "Kör Noktaları" göstermektir.
       
-      DÜKKAN VERİ ANALİZİ (GİZLİ PANEL):
-      1. FİNANSAL:
-         - Ciro: Bu ay ${Number(thisMonthStats._sum?.totalAmount || 0).toLocaleString('tr-TR')} TL (Geçen ay: ${Number(lastMonthStats._sum?.totalAmount || 0).toLocaleString('tr-TR')} TL).
-         - Tahsilat Gücü: Toplam ${Number(paidAmount).toLocaleString('tr-TR')} TL toplandı. Tahsilat oranımız %${collectionRate.toFixed(1)}. Alacağın ${Number(overdueAmount).toLocaleString('tr-TR')} TL'si vadesi geçmiş!
+      DÜKKAN RÖNTGENİ (DEEP BI PANELİ):
+      1. MALİ PERFORMANS VE NAKİT AKIŞI:
+         - Genel Ciro: ${Number(stats._sum?.totalAmount || 0).toLocaleString('tr-TR')} TL.
+         - Aylık Kıyas: Bu ay ${Number(thisMonthStats._sum?.totalAmount || 0).toLocaleString('tr-TR')} TL vs. Geçen ay ${Number(lastMonthStats._sum?.totalAmount || 0).toLocaleString('tr-TR')} TL.
+         - Tahsilat Gücü: Toplam ${Number(paidAmount).toLocaleString('tr-TR')} TL toplandı. Oran: %${collectionRate.toFixed(1)}.
+         - Gelecek Tahmini: Önümüzdeki 7 gün içinde dükkana ${Number(upcomingCashFlow._sum?.amount || 0).toLocaleString('tr-TR')} TL nakit girişi bekleniyor.
       
-      2. STOK DURUMU:
-         - Acil Tedarik Lazım: ${lowStockProducts.map(p => `${p.name} (${p.stock} ${p.unit})`).join(', ')}
+      2. EKİP (PLASİYER) PERFORMANSI:
+         - ${teamReport}
       
-      3. CRM VE OPERASYON (YENİ!):
-         - Son Görüşmeler: ${recentCallLogs.map(l => `${l.customer?.user?.name}: ${l.note} (${l.outcome})`).join('\n')}
-         - Yaklaşan Randevular/Hatırlatmalar: ${upcomingReminders.map(r => `${r.customer?.user?.name}: ${r.reminderNote} (Tarih: ${r.reminderAt?.toLocaleDateString('tr-TR')})`).join('\n')}
-         - Bölgesel Gücümüz: ${regionalDistribution.map(r => `${r.region || 'Bilinmeyen'}: ${r._count.id} Müşteri`).join(', ')}
+      3. MÜŞTERİ KARNELERİ (Ödenen vs Borç):
+         ${criticalCustomerSummaries.map(c => `- ${c.name}: Bugüne kadar toplam ${Number(c.totalBought).toLocaleString('tr-TR')} TL mal aldı, bunun ${Number(c.totalPaid).toLocaleString('tr-TR')} TL'sini ÖDEDİ. Mevcut net borcu: ${Number(c.balance).toLocaleString('tr-TR')} TL. (Gecikmiş kalem: ${Number(c.outstanding).toLocaleString('tr-TR')} TL)`).join('\n')}
       
-      4. MÜŞTERİ RİSKLERİ:
-         - Borçlu ve Kritik: ${pendingOverdue.map(p => `${p.order?.customer?.user?.name || 'Müşteri'} (${Number(p.amount || 0).toLocaleString('tr-TR')} TL)`).join(', ')}
-         - Uyuyanlar: ${atRiskList.map(c => `${c.name} (Son sipariş: ${c.last})`).join(', ')}
+      4. OPERASYONEL RİSKLER:
+         - Kritik Stok: ${lowStockProducts.map(p => `${p.name} (${p.stock} adet)`).join(', ')}
+         - Uyuyan Müşteriler: ${atRiskSamples.slice(0, 5).map(c => c.user?.name).join(', ')}
+         - Son Görüşme Notları: ${recentCallLogs.map(l => `${l.customer?.user?.name}: ${l.note}`).join(' | ')}
       
       STRATEJİK TALİMATLAR:
-      - Erkan Bey "Bugün ne yapalım?" derse, hem tahsilatları hem de yaklaşan randevuları (randevu listesindekileri) birleştirip bir "Günlük Plan" sun.
-      - Son görüşmelerdeki negatif durumları (örneğin "ulaşılamadı") fark et ve "Bunu tekrar arayalım" de.
-      - Bölgesel dağılıma bakarak, "Şu bölgede az müşterimiz var, oraya mı odaklansak?" gibi büyüme önerileri ver.
-      - Cevaplarında mutlaka Markdown kullan, önemli kısımları **kalın** yap ve Erkan Bey'in vaktini çalmadan net konuş.
+      - Erkan Bey bir müşteriyi sorduğunda sadece borcunu değil; "Bugüne kadar şu kadar ödedi, bu kadar mal aldı, ödeme sadakati şu" diye tam analiz ver.
+      - Plasiyerlerin performansını kıyasla. Kimin bölgesinde para takılıyorsa "Erkan Bey, şu arkadaşın bölgesinde tahsilatlar yavaşlamış" uyarısı yap.
+      - Stok bitmek üzereyse "Satışları kârlılığı yüksek ve stoktaki mallara yönlendirelim" tavsiyesi ver.
+      - Her zaman Markdown kullan. Rakamları ve isimleri **kalın** yap. Net ve kararlı konuş.
     `
 
     // Gemini Başlatma
