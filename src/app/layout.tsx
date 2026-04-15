@@ -5,8 +5,6 @@ import { Toaster } from '@/components/ui/toaster'
 
 const inter = Inter({ subsets: ['latin'] })
 
-import NextTopLoader from 'nextjs-toploader'
-
 export const metadata = {
   title: 'Satış Yönetim v4.1',
   description: 'Proje Giriş Paneli',
@@ -24,14 +22,6 @@ export default function RootLayout({
   return (
     <html lang="tr">
       <body className={inter.className} suppressHydrationWarning>
-        <NextTopLoader 
-          color="#2563eb" 
-          showSpinner={false} 
-          height={4} 
-          speed={150} 
-          crawlSpeed={150} 
-          initialPosition={0.1}
-        />
         <Providers>
           {children}
           <Toaster />
