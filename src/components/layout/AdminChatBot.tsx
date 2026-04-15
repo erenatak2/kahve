@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { Bot, X, Send, MessageCircle, MoreVertical, Sparkles, ShoppingCart, Mic, MicOff } from 'lucide-react'
+import { Bot, X, Send, MessageCircle, MoreVertical, Sparkles, ShoppingCart } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import ReactMarkdown from 'react-markdown'
@@ -19,7 +19,6 @@ export function AdminChatBot() {
     { role: 'model', content: 'Selam Erkan Bey! Dükkanın tüm defterleri elimde, her şeyi ezberledim. Bana bir şey mi soracaktınız, yoksa bugünkü satışları mı planlayalım?' }
   ])
   const [isLoading, setIsLoading] = useState(false)
-  const [isListening, setIsListening] = useState(false)
   const [isCreatingOrder, setIsCreatingOrder] = useState<string | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
 
@@ -28,34 +27,6 @@ export function AdminChatBot() {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight
     }
   }, [messages])
-
-  const toggleListening = () => {
-    if (!('webkitSpeechRecognition' in window)) {
-      toast({ title: 'Hata', description: 'Tarayıcınız ses tanımayı desteklemiyor.', variant: 'destructive' })
-      return
-    }
-
-    if (isListening) {
-      setIsListening(false)
-      return
-    }
-
-    const SpeechRecognition = (window as any).webkitSpeechRecognition
-    const recognition = new SpeechRecognition()
-    recognition.lang = 'tr-TR'
-    recognition.continuous = false
-    recognition.interimResults = false
-
-    recognition.onstart = () => setIsListening(true)
-    recognition.onend = () => setIsListening(false)
-    recognition.onerror = () => setIsListening(false)
-    recognition.onresult = (event: any) => {
-      const transcript = event.results[0][0].transcript
-      setInput(prev => prev + (prev ? ' ' : '') + transcript)
-    }
-
-    recognition.start()
-  }
 
   const handleSend = async () => {
     if (!input.trim() || isLoading) return
@@ -210,23 +181,12 @@ export function AdminChatBot() {
           {/* Input Alanı */}
           <div className="p-4 bg-white border-t">
             <div className="flex gap-2">
-              <Button
-                size="icon"
-                variant="outline"
-                onClick={toggleListening}
-                className={cn(
-                  "rounded-xl shrink-0 transition-all",
-                  isListening ? "bg-red-50 border-red-200 text-red-600 animate-pulse" : "bg-slate-50 text-slate-500"
-                )}
-              >
-                {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
-              </Button>
               <input
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-                placeholder={isListening ? "Dinliyorum Erkan Bey..." : "Erkan Bey, çekinme sor..."}
+                placeholder="Erkan Bey, çekinme sor..."
                 className="flex-1 bg-slate-100 border-none rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-indigo-500 transition-all outline-none"
               />
               <Button 
