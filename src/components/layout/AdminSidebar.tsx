@@ -106,7 +106,7 @@ const SidebarLink = memo(({
     <Link
       href={item.href}
       prefetch={true}
-      onPointerDown={() => onNavigate(item.href)}
+      onClick={() => onNavigate(item.href)}
       className={cn(
         'flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 active:scale-[0.98]',
         isActive
@@ -141,21 +141,21 @@ export function AdminSidebar({ user, onClose }: { user: { name?: string; email?:
   const lastClickTime = useRef<number>(0)
   
   // Navigation handler with throttling
+  // Navigasyonu sadece gerçek tıklamada (click) başlat
   const handleNavigate = useCallback((href: string) => {
     const now = Date.now()
     if (now - lastClickTime.current < 150) return
     lastClickTime.current = now
     
-    // Instant action on press
+    // Tıklama anında görsel geri bildirimi ver
     startTransition(() => {
       setPendingHref(href)
-      router.push(href)
     })
     
     if (onClose) {
       setTimeout(onClose, 50)
     }
-  }, [onClose, router])
+  }, [onClose])
 
   // Clear pending state when navigated
   useEffect(() => {
