@@ -43,14 +43,8 @@ export function AdminChatBot() {
         })
       })
 
-      console.log('[ChatBot] Response status:', response.status)
       const data = await response.json()
-      console.log('[ChatBot] Response data:', data)
-      
-      if (!response.ok) {
-        const errorDetail = data.error || data.debug || 'Bilinmeyen bir sorun oluştu'
-        setMessages(prev => [...prev, { role: 'model', content: `Hata (${response.status}): ${errorDetail}` }])
-      } else if (data.content) {
+      if (data.content) {
         setMessages(prev => [...prev, { role: 'model', content: data.content }])
       } else {
         setMessages(prev => [...prev, { role: 'model', content: 'Kusura bakma Erkan Bey, kafam biraz karıştı. Tekrar sorabilir misiniz?' }])
