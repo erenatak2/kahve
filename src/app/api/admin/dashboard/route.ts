@@ -65,6 +65,12 @@ export async function GET(req: NextRequest) {
   // 4. Hatırlatıcılar
   const today = new Date()
   today.setHours(0, 0, 0, 0)
+  const tomorrow = new Date(today)
+  tomorrow.setDate(tomorrow.getDate() + 1)
+
+  // Tarihleri UTC'ye çevir (veritabanı ile uyumlu olması için)
+  const todayUTC = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()))
+  const tomorrowUTC = new Date(Date.UTC(tomorrow.getFullYear(), tomorrow.getMonth(), tomorrow.getDate()))
 
   const reminders = await prisma.order.findMany({
     where: {
@@ -81,6 +87,105 @@ export async function GET(req: NextRequest) {
     take: 10
   })
 
+  // 5. Bugün Aranacaklar (todayCalls) - sadece gün kontrolü, saat beklenmez
+  const todayCalls = await prisma.customer.findMany({
+    where: {
+      nextCallDate: {
+        gte: todayUTC,
+        lt: tomorrowUTC
+      },
+      isActive: true,
+      ...(isSalesRep ? { salesRepId: userId } : {})
+    },
+    select: {
+      id: true,
+      user: { select: { name: true } },
+      phone: true,
+      region: true,
+      nextCallDate: true
+    },
+    orderBy: { nextCallDate: 'asc' }
+  })
+
+  // Kontaklardaki hatırlatıcılar - sadece gün kontrolü
+  const contactReminders = await prisma.contact.findMany({
+    where: {
+      reminderAt: {
+        gte: todayUTC,
+        lt: tomorrowUTC
+      }
+    },
+    select: {
+      id: true,
+      name: true,
+      phone: true,
+      reminderAt: true,
+      notes: true
+    },
+    orderBy: { reminderAt: 'asc' }
+  })
+
+  // Sipariş hatırlatıcılarını da todayCalls'a ekle - sadece gün kontrolü
+  const orderReminders = await prisma.order.findMany({
+    where: {
+      reminderAt: {
+        gte: todayUTC,
+        lt: tomorrowUTC
+      },
+      status: 'TESLIM_EDILDI',
+      ...(isSalesRep ? { customer: { salesRepId: userId } } : {})
+    },
+    include: {
+      customer: {
+        select: {
+          id: true,
+          user: { select: { name: true } },
+          phone: true,
+          region: true
+        }
+      }
+    },
+    orderBy: { reminderAt: 'asc' }
+  })
+
+  // Sipariş hatırlatıcılarını todayCalls formatına dönüştür
+  const orderCalls = orderReminders.map(o => ({
+    id: o.id,
+    name: o.customer.user.name,
+    phone: o.customer.phone,
+    region: o.customer.region,
+    date: o.reminderAt,
+    type: 'ORDER' as const,
+    customerId: o.customer.id
+  }))
+
+  // Kontak hatırlatıcılarını todayCalls formatına dönüştür
+  const contactCalls = contactReminders.map(c => ({
+    id: c.id,
+    name: c.name,
+    phone: c.phone,
+    region: null,
+    date: c.reminderAt,
+    type: 'CONTACT' as const,
+    customerId: null
+  }))
+
+  // Müşteri aramalarını da todayCalls formatına dönüştür
+  const customerCalls = todayCalls.map(c => ({
+    id: c.id,
+    name: c.user.name,
+    phone: c.phone,
+    region: c.region,
+    date: c.nextCallDate,
+    type: 'CUSTOMER' as const,
+    customerId: c.id
+  }))
+
+  // Birleştir
+  const allTodayCalls = [...customerCalls, ...orderCalls, ...contactCalls].sort((a, b) =>
+    new Date(a.date || 0).getTime() - new Date(b.date || 0).getTime()
+  )
+
   return NextResponse.json({
     stats: {
       totalOrders,
@@ -90,6 +195,7 @@ export async function GET(req: NextRequest) {
     },
     recentOrders,
     pendingPayments,
-    reminders
+    reminders,
+    todayCalls: allTodayCalls
   })
 }

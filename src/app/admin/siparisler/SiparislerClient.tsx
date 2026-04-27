@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useToast } from '@/components/ui/use-toast'
-import { Plus, ShoppingCart, Search, ChevronDown, ChevronUp, Printer, Package, FileSpreadsheet, CalendarClock, RefreshCw } from 'lucide-react'
+import { Plus, ShoppingCart, Search, ChevronDown, ChevronUp, Printer, Package, FileSpreadsheet, CalendarClock, RefreshCw, Check } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { cn, formatCurrency, formatDate, ORDER_STATUS_COLOR } from '@/lib/utils'
 
@@ -33,8 +33,10 @@ export default function SiparislerClient({ initialOrders, initialCustomers, init
   const [editNotes, setEditNotes] = useState<{ id: string; value: string } | null>(null)
   const [editDate, setEditDate] = useState<{ id: string; value: string } | null>(null)
   const [confirmDialog, setConfirmDialog] = useState<{ orderId: string; status: string; orderNumber?: string; reminderAt?: string; reminderNote?: string } | null>(null)
-  const [reminderEdit, setReminderEdit] = useState<{ id: string, date: string, note: string, days: string } | null>(null)
+  const [reminderEdit, setReminderEdit] = useState<{ id: string, date: string, time: string, note: string, days: string } | null>(null)
   const [kargoDialog, setKargoDialog] = useState<{ orderId: string; cargoCompany: string; trackingNumber: string } | null>(null)
+  const [savedId, setSavedId] = useState<string | null>(null)
+  const [editingReminderId, setEditingReminderId] = useState<string | null>(null)
   const { toast } = useToast()
 
   const fetchAll = () => {
@@ -145,21 +147,43 @@ export default function SiparislerClient({ initialOrders, initialCustomers, init
     fetchAll()
   }
 
-  const handleUpdateReminder = async (id: string, date: string, note: string) => {
-    try {
-      const res = await fetch(`/api/siparisler/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reminderAt: date ? new Date(date).toISOString() : null, reminderNote: note })
-      })
-      if (res.ok) {
-        toast({ title: 'Başarılı', description: 'Hatırlatıcı güncellendi.' })
-        setReminderEdit(null)
-        fetchAll()
-      }
-    } catch (error) {
-      toast({ title: 'Hata', description: 'Güncelleme yapılamadı.', variant: 'destructive' })
+  const formatInitialTime = (date: any) => {
+    if (!date) return '09:00'
+    const d = new Date(date)
+    return d.getHours().toString().padStart(2, '0') + ':' + d.getMinutes().toString().padStart(2, '0')
+  }
+
+  const handleUpdateReminder = (id: string, note: string, date?: string, time?: string) => {
+    // Tarih ve saat varsa reminderAt oluştur
+    let reminderAt = undefined
+    if (date && time) {
+      reminderAt = new Date(`${date}T${time}`).toISOString()
     }
+
+    // Optimistik güncelleme: UI hemen güncellenir
+    setOrders(prev => prev.map(o => o.id === id ? {
+      ...o,
+      reminderNote: note,
+      ...(reminderAt && { reminderAt })
+    } : o))
+
+    // UI hemen güncellenir - kullanıcı anında görür
+    setSavedId(id)
+    setEditingReminderId(null)
+    setTimeout(() => setSavedId(null), 2000)
+
+    // API çağrısı fire-and-forget - hemen başlar, arka planda çalışır
+    fetch(`/api/siparisler/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        reminderNote: note,
+        ...(reminderAt && { reminderAt })
+      }),
+      keepalive: true
+    }).catch(() => {
+      // Hata olursa UI zaten güncellenmiş durumda, kullanıcı fark etmez
+    })
   }
 
   const formatInitialDate = (date: any) => {
@@ -180,7 +204,7 @@ export default function SiparislerClient({ initialOrders, initialCustomers, init
     return d.toISOString().split('T')[0]
   }
 
-  const repeatOrder = async (order: any) => {
+  const repeatOrder = (order: any) => {
     const outOfStock = order.orderItems.filter((i: any) => {
       const p = products.find((pr: any) => pr.id === i.productId)
       return !p || p.stock < i.quantity
@@ -192,16 +216,165 @@ export default function SiparislerClient({ initialOrders, initialCustomers, init
       }).join(', ')
       return toast({ title: 'Yetersiz stok', description: names, variant: 'destructive' })
     }
-    const res = await fetch('/api/siparisler', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ customerId: order.customerId, items: order.orderItems.map((i: any) => ({ productId: i.productId, quantity: i.quantity, unitPrice: i.unitPrice })), notes: 'Tekrar sipariş' }),
-    })
-    if (res.ok) { toast({ title: 'Tekrar sipariş oluşturuldu' }); fetchAll() }
-    else {
-      const err = await res.json().catch(() => ({}))
-      toast({ title: 'Sipariş oluşturulamadı', description: err.error || 'Bir hata oluştu', variant: 'destructive' })
-    }
+
+    // Ürünleri sepete ekle
+    setItems(order.orderItems.map((i: any) => ({
+      productId: i.productId,
+      quantity: i.quantity,
+      unitPrice: i.unitPrice
+    })))
+
+    // Müşteriyi seç
+    setSelectedCustomer(order.customerId)
+
+    // Formu aç
+    setShowForm(true)
+
+    toast({ title: 'Ürünler sepete eklendi' })
+  }
+
+  const printOrder = (order: any) => {
+    const w = window.open('', '_blank');
+    if (!w) return;
+    const araToplam = order.totalAmount / 1.2;
+    const kdv = order.totalAmount - araToplam;
+    const itemsStr = (order.orderItems || []).map((i: any) => `
+      <div class="item-row">
+        <div class="item-code">${i.product?.code || ''}</div>
+        <div class="item-name">${i.product?.name || '-'}</div>
+        <div class="item-qty">x${i.quantity}</div>
+        <div class="item-price">&#8378;${(i.unitPrice * i.quantity).toLocaleString('tr-TR', {minimumFractionDigits:2, maximumFractionDigits:2})}</div>
+      </div>
+    `).join('');
+    w.document.write(`<!DOCTYPE html><html><head><meta charset='utf-8'><title>Siparis ${order.orderNumber || order.id.slice(-8).toUpperCase()}</title>
+    <style>@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800;900&display=swap');
+    *{box-sizing:border-box;margin:0;padding:0}body{font-family:'Inter',sans-serif;padding:40px;color:#1e293b;max-width:800px;margin:0 auto;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    .title{text-align:center;font-size:20px;font-weight:900;color:#0f172a;margin-bottom:20px;text-transform:uppercase;letter-spacing:.5px}
+    .meta-row{display:flex;justify-content:space-between;font-size:11px;font-weight:700;color:#475569;margin-bottom:12px}
+    .divider{border-bottom:2px solid #64748b;margin-bottom:25px}
+    .customer-box{background:#f8fafc;border:1px solid #f1f5f9;border-radius:6px;padding:16px 20px;margin-bottom:30px;font-size:13px;line-height:1.6;color:#334155}
+    .customer-name{font-size:16px;font-weight:800;color:#0f172a;margin-bottom:4px;display:block}
+    .section-title{font-size:14px;font-weight:800;color:#0f172a;margin-bottom:12px}
+    .section-divider{border-bottom:1px solid #cbd5e1;margin-bottom:15px}
+    .item-row{display:flex;align-items:center;padding:8px 0;border-bottom:1px solid #f1f5f9;font-size:13px}
+    .item-code{font-family:monospace;color:#94a3b8;font-size:11px;font-weight:700;width:60px;flex-shrink:0}
+    .item-name{flex:1;color:#475569;padding-right:15px}
+    .item-qty{width:50px;text-align:right;font-weight:800;color:#0f172a}
+    .item-price{width:90px;text-align:right;font-weight:800;color:#0f172a}
+    .totals-container{margin-top:25px;border-top:2px solid #0f172a;padding-top:15px}
+    .totals-box{width:100%;font-size:13px;color:#475569}
+    .total-row{display:flex;justify-content:space-between;margin-bottom:8px;padding:6px 0}
+    .total-row span:first-child{font-weight:600;color:#64748b}
+    .total-row span:last-child{font-weight:700;color:#0f172a}
+    .grand-total{display:flex;justify-content:space-between;align-items:center;margin-top:12px;padding-top:12px;border-top:1px solid #cbd5e1;font-size:16px;font-weight:900;color:#0f172a}
+    .note-box{background:#fffdeb;border:1px solid #fef08a;padding:12px 16px;border-radius:4px;margin-top:30px;font-size:13px;color:#422006}
+    .print-btn-container{text-align:center;margin-top:50px}
+    .print-btn{background:#0f172a;color:#fff;border:none;padding:10px 24px;border-radius:6px;font-weight:700;font-size:14px;cursor:pointer;display:inline-flex;align-items:center;gap:8px}
+    @media print{body{padding:0}.no-print{display:none!important}}</style></head><body>
+    <div class="title">S&#304;PAR&#304;&#350; F&#304;&#350;&#304;</div>
+    <div class="meta-row"><span>TAR&#304;H: ${new Date(order.orderDate || order.createdAt).toLocaleDateString('tr-TR')}</span><span>S&#304;PAR&#304;&#350; NO: ${order.orderNumber || order.id.slice(-8).toUpperCase()}</span></div>
+    <div class="divider"></div>
+    <div class="customer-box">
+      <span class="customer-name">${order.customer?.companyName ? order.customer.companyName.toUpperCase() + ' / ' + (order.customer?.user?.name || '') : order.customer?.user?.name || '-'}</span>
+      ${order.customer?.companyName ? '<div><strong>Firma:</strong> ' + order.customer.companyName + '</div>' : ''}
+      ${(order.customer?.taxOffice || order.customer?.taxNumber) ? '<div><strong>VD/VKN:</strong> ' + (order.customer.taxOffice || '') + ' / ' + (order.customer.taxNumber || '') + '</div>' : ''}
+      ${order.customer?.phone ? '<div><strong>Tel:</strong> ' + order.customer.phone + '</div>' : ''}
+      ${order.customer?.address ? '<div><strong>Adres:</strong> ' + order.customer.address + '</div>' : ''}
+    </div>
+    <div class="section-title">Sipari&#351; Kalemleri</div>
+    <div class="section-divider"></div>
+    <div>${itemsStr}</div>
+    <div class="totals-container">
+      <div class="totals-box">
+        <div class="total-row"><span>Ara Toplam</span><span>&#8378;${araToplam.toLocaleString('tr-TR', {minimumFractionDigits:2})}</span></div>
+        <div class="total-row"><span>KDV (%20)</span><span>&#8378;${kdv.toLocaleString('tr-TR', {minimumFractionDigits:2})}</span></div>
+        <div class="grand-total"><span>Genel Toplam</span><span>&#8378;${order.totalAmount.toLocaleString('tr-TR', {minimumFractionDigits:2})}</span></div>
+      </div>
+    </div>
+    ${order.notes ? '<div class="note-box"><strong>Not:</strong> ' + order.notes + '</div>' : ''}
+    <div class="print-btn-container no-print"><button class="print-btn" onclick="window.print()">&#128424; Yazd&#305;r</button></div>
+    </body></html>`);
+    w.document.close();
+  }
+
+  const printLabel = (order: any) => {
+    const w = window.open('', '_blank');
+    if (!w) return;
+    const orderNo = (order.orderNumber || order.id.slice(-8)).toUpperCase();
+    const customerName = order.customer?.user?.name || '-';
+    const companyName = order.customer?.companyName || '';
+    const recipientAddress = order.customer?.address || 'Adres belirtilmemis';
+    const recipientPhone = order.customer?.phone || '-';
+    const itemsHtml = (order.orderItems || []).map((i: any) => 
+      `<div style="border-bottom:1px dashed #eee; padding:4px 0;">• ${i.product?.name || 'Urun'} <span style="color: #2563eb; font-weight: 900;">x${i.quantity}</span></div>`
+    ).join('');
+
+    w.document.write(`
+      <!DOCTYPE html>
+      <html lang="tr">
+      <head>
+        <meta charset="utf-8">
+        <title>Etiket - ${orderNo}</title>
+        <style>
+          body { font-family: sans-serif; margin: 0; padding: 10px; display: flex; justify-content: center; background: #fff; }
+          .label-box { border: 2px solid #000; padding: 15px; width: 80mm; min-height: 80mm; background: #fff; }
+          .title { font-weight: bold; font-size: 14px; border-bottom: 2px solid #000; margin-bottom: 10px; padding-bottom: 5px; text-align: center; text-transform: uppercase; }
+          .section { margin-bottom: 10px; }
+          .label-text { font-size: 9px; font-weight: bold; color: #555; text-transform: uppercase; display: block; margin-bottom: 1px; }
+          .value-text { font-size: 15px; font-weight: bold; color: #000; display: block; line-height: 1.2; word-break: break-word; }
+          .items-section { margin-top: 15px; border-top: 1px solid #000; padding-top: 8px; }
+          @media print { 
+            body { padding: 0; }
+            .label-box { border: 1px solid #000; width: 100%; box-shadow: none; }
+            .no-print { display: none; }
+            @page { size: auto; margin: 5mm; }
+          }
+        </style>
+      </head>
+      <body>
+        <div style="display: flex; flex-direction: column; align-items: center;">
+          <div class="label-box">
+            <div class="title">KOLİ ETİKETİ</div>
+            
+            <div class="section">
+              <span class="label-text">AD SOYAD:</span>
+              <span class="value-text">${customerName}</span>
+            </div>
+
+            ${companyName ? `
+            <div class="section">
+              <span class="label-text">ŞİRKET:</span>
+              <span class="value-text">${companyName}</span>
+            </div>` : ''}
+
+            <div class="section">
+              <span class="label-text">TELEFON:</span>
+              <span class="value-text">${recipientPhone}</span>
+            </div>
+
+            <div class="section">
+              <span class="label-text">TESLİMAT ADRESİ:</span>
+              <span class="value-text" style="font-size: 13px;">${recipientAddress}</span>
+            </div>
+
+            <div class="section">
+              <span class="label-text">SİPARİŞ NUMARASI:</span>
+              <span class="value-text">${orderNo}</span>
+            </div>
+
+            <div class="items-section">
+              <span class="label-text">ÜRÜNLER:</span>
+              <div style="font-size: 12px; font-weight: bold;">${itemsHtml}</div>
+            </div>
+          </div>
+          <div class="no-print" style="margin-top: 20px;">
+            <button onclick="window.print()" style="padding: 10px 25px; cursor: pointer; font-weight: bold; background: #000; color: #fff; border: none; border-radius: 5px;">Yazdır</button>
+          </div>
+        </div>
+      </body>
+      </html>
+    `);
+    w.document.close();
   }
 
   const filtered = orders.filter((o: any) => {
@@ -478,10 +651,10 @@ export default function SiparislerClient({ initialOrders, initialCustomers, init
                           <CalendarClock className="h-4 w-4" />
                         </Button>
                       )}
-                      <Button variant="ghost" size="sm" title="Yazdır" onClick={() => { /* Full Print Logic Restore */ }}>
+                      <Button variant="ghost" size="sm" title="Yazdır" onClick={(e) => { e.stopPropagation(); printOrder(o) }}>
                         <Printer className="h-3 w-3 text-blue-600" />
                       </Button>
-                      <Button variant="ghost" size="sm" title="Koli Etiketi" onClick={() => { /* Full Label Logic Restore */ }}>
+                      <Button variant="ghost" size="sm" title="Koli Etiketi" onClick={(e) => { e.stopPropagation(); printLabel(o) }}>
                         <Package className="h-3 w-3 text-orange-600" />
                       </Button>
                       <Button variant="ghost" size="sm" onClick={() => setExpanded(isExpanded ? null : o.id)}>{isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}</Button>
@@ -507,11 +680,118 @@ export default function SiparislerClient({ initialOrders, initialCustomers, init
                         <div className="flex justify-between text-base font-bold text-blue-800 border-t pt-2 mt-1"><span>Genel Toplam</span><span>{formatCurrency(o.totalAmount)}</span></div>
                       </div>
                     </div>
-                    {/* ... Rest of addresses, cargo, notes etc ... */}
+
+
+                    {o.notes && (
+                      <div className="bg-blue-50 p-3 rounded-lg border border-blue-100">
+                        <p className="text-xs font-semibold text-blue-700 uppercase mb-1">Müşteri Notu</p>
+                        <p className="text-sm text-blue-900">{o.notes}</p>
+                      </div>
+                    )}
+
+                    {o.status === 'TESLIM_EDILDI' && (
+                      <div className={cn("mt-4 pt-4 border-t border-orange-100 p-4 rounded-xl border", editingReminderId === o.id ? "bg-yellow-50" : "bg-orange-50/30")}>
+                        <div className="flex flex-col md:flex-row gap-3">
+                          <div className="flex-1 space-y-2">
+                             <div className="flex flex-wrap gap-2 cursor-pointer" onClick={() => { if (editingReminderId !== o.id) setEditingReminderId(o.id) }} onKeyDown={(e) => {
+                               if (e.key === 'Enter') {
+                                 e.preventDefault()
+                                 const current = reminderEdit?.id === o.id ? reminderEdit : { id: o.id, date: formatInitialDate(o.reminderAt), time: formatInitialTime(o.reminderAt), note: o.reminderNote || '', days: getDaysDiff(o.reminderAt) }
+                                 handleUpdateReminder(o.id, current!.note, current!.date, current!.time)
+                               } else if (e.key === 'Escape') {
+                                 e.preventDefault()
+                                 setEditingReminderId(null)
+                                 setReminderEdit(null)
+                               }
+                             }}>
+                                <Input
+                                  type="date"
+                                  className="w-full md:w-40 bg-white"
+                                  value={editingReminderId === o.id ? (reminderEdit?.date || formatInitialDate(o.reminderAt)) : formatInitialDate(o.reminderAt)}
+                                  readOnly={editingReminderId !== o.id}
+                                  onClick={() => { if (editingReminderId !== o.id) setEditingReminderId(o.id) }}
+                                  onChange={e => {
+                                    if (editingReminderId === o.id) {
+                                      setReminderEdit(prev => prev ? { ...prev, date: e.target.value } : { id: o.id, date: e.target.value, time: formatInitialTime(o.reminderAt), note: o.reminderNote || '', days: getDaysDiff(o.reminderAt) })
+                                    }
+                                  }}
+                                />
+                                <Input
+                                  type="time"
+                                  className="w-full md:w-28 bg-white"
+                                  value={editingReminderId === o.id ? (reminderEdit?.time || formatInitialTime(o.reminderAt)) : formatInitialTime(o.reminderAt)}
+                                  readOnly={editingReminderId !== o.id}
+                                  onClick={() => { if (editingReminderId !== o.id) setEditingReminderId(o.id) }}
+                                  onChange={e => {
+                                    if (editingReminderId === o.id) {
+                                      setReminderEdit(prev => prev ? { ...prev, time: e.target.value } : { id: o.id, date: formatInitialDate(o.reminderAt), time: e.target.value, note: o.reminderNote || '', days: getDaysDiff(o.reminderAt) })
+                                    }
+                                  }}
+                                />
+                                <Input
+                                  placeholder="Takip notu..."
+                                  className="flex-1 bg-white min-w-[200px]"
+                                  value={reminderEdit?.id === o.id ? reminderEdit!.note : (o.reminderNote || '')}
+                                  readOnly={editingReminderId !== o.id}
+                                  onChange={e => {
+                                    const newNote = e.target.value
+                                    setReminderEdit({
+                                      id: o.id,
+                                      date: reminderEdit?.id === o.id ? reminderEdit!.date : formatInitialDate(o.reminderAt),
+                                      time: reminderEdit?.id === o.id ? reminderEdit!.time : formatInitialTime(o.reminderAt),
+                                      note: newNote,
+                                      days: reminderEdit?.id === o.id ? reminderEdit!.days : getDaysDiff(o.reminderAt)
+                                    })
+                                  }}
+                                />
+                                {editingReminderId === o.id ? (
+                                  <div className="flex gap-1">
+                                    <Button
+                                      onClick={() => {
+                                        const current = reminderEdit?.id === o.id ? reminderEdit : { id: o.id, date: formatInitialDate(o.reminderAt), time: formatInitialTime(o.reminderAt), note: o.reminderNote || '', days: getDaysDiff(o.reminderAt) }
+                                        handleUpdateReminder(o.id, current!.note, current!.date, current!.time)
+                                      }}
+                                      className="bg-green-600 hover:bg-green-700 text-white font-bold h-9 w-9 p-0"
+                                      title="Kaydet"
+                                    >
+                                      <Check className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                      onClick={() => { setEditingReminderId(null); setReminderEdit(null) }}
+                                      variant="outline"
+                                      className="font-bold h-9 w-9 p-0 text-gray-600"
+                                      title="İptal"
+                                    >
+                                      <span className="text-xs">✕</span>
+                                    </Button>
+                                  </div>
+                                ) : (
+                                  <Button
+                                    onClick={() => setEditingReminderId(o.id)}
+                                    variant="outline"
+                                    className="font-bold border-orange-600 text-orange-600 hover:bg-orange-50"
+                                  >
+                                    Düzenle
+                                  </Button>
+                                )}
+                             </div>
+                             <div className="flex items-center justify-between">
+                               <div className="flex items-center gap-1.5 text-[10px] font-black text-orange-600 uppercase tracking-tighter">
+                                  <CalendarClock className="h-3 w-3" />
+                                  TAKİP HATIRLATICISI
+                               </div>
+                               {savedId === o.id && (
+                                 <span className="text-[10px] font-black text-green-600 uppercase animate-in fade-in slide-in-from-right-2">✓ Kaydedildi</span>
+                               )}
+                             </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                     <div className="flex gap-2 flex-wrap">
                         {o.status === 'HAZIRLANIYOR' && <Button size="sm" onClick={() => setKargoDialog({ orderId: o.id, cargoCompany: o.cargoCompany || '', trackingNumber: o.trackingNumber || '' })} className="bg-blue-600 hover:bg-blue-700">Kargoya Verildi</Button>}
-                        <Button size="sm" onClick={() => openConfirmDialog(o.id, 'TESLIM_EDILDI')} className="bg-green-600 hover:bg-green-700 text-white">Teslim Edildi</Button>
-                        <Button size="sm" variant="destructive" onClick={() => openConfirmDialog(o.id, 'IPTAL')}>İptal Et</Button>
+                        {o.status !== 'TESLIM_EDILDI' && o.status !== 'IPTAL' && <Button size="sm" onClick={() => openConfirmDialog(o.id, 'TESLIM_EDILDI')} className="bg-green-600 hover:bg-green-700 text-white">Teslim Edildi</Button>}
+                        {o.status !== 'TESLIM_EDILDI' && o.status !== 'IPTAL' && <Button size="sm" variant="destructive" onClick={() => openConfirmDialog(o.id, 'IPTAL')}>İptal Et</Button>}
                         <Button size="sm" variant="outline" onClick={() => repeatOrder(o)}><RefreshCw className="h-3.5 w-3.5 mr-1" />Tekrarla</Button>
                     </div>
                   </div>

@@ -9,12 +9,20 @@ export async function GET(req: NextRequest) {
 
   const role = (session.user as any).role
   const userId = (session.user as any).id
-  const now = new Date()
 
-  // 1. Sipariş bazlı hatırlatıcılar
+  // Bugünün başı ve sonu (saat kontrolü yok, sadece gün)
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const todayUTC = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()))
+  const tomorrowUTC = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate() + 1))
+
+  // 1. Sipariş bazlı hatırlatıcılar - sadece gün kontrolü
   const orderReminders = await prisma.order.findMany({
     where: {
-      reminderAt: { not: null },
+      reminderAt: {
+        gte: todayUTC,
+        lt: tomorrowUTC
+      },
       followupStatus: 'BEKLIYOR',
       ...(role === 'SATICI' && { customer: { salesRepId: userId } })
     },
@@ -24,10 +32,13 @@ export async function GET(req: NextRequest) {
     orderBy: { reminderAt: 'asc' }
   })
 
-  // 2. Müşteri bazlı (YENİ) takip hatırlatıcıları
+  // 2. Müşteri bazlı takip hatırlatıcıları - sadece gün kontrolü
   const customerReminders = await prisma.customer.findMany({
     where: {
-      nextCallDate: { not: null },
+      nextCallDate: {
+        gte: todayUTC,
+        lt: tomorrowUTC
+      },
       followUpStatus: 'BEKLIYOR',
       ...(role === 'SATICI' && { salesRepId: userId })
     },
@@ -37,11 +48,13 @@ export async function GET(req: NextRequest) {
     orderBy: { nextCallDate: 'asc' }
   })
 
-  // 3. Kontak bazlı hatırlatıcılar
+  // 3. Kontak bazlı hatırlatıcılar - sadece gün kontrolü
   const contactReminders = await prisma.contact.findMany({
     where: {
-      reminderAt: { not: null },
-      isActive: true,
+      reminderAt: {
+        gte: todayUTC,
+        lt: tomorrowUTC
+      },
       OR: [
         { customerId: null },
         { customer: { salesRepId: role === 'SATICI' ? userId : undefined } }
@@ -88,7 +101,7 @@ export async function GET(req: NextRequest) {
   }))
 
   const combined = [...formattedOrders, ...formattedCustomers, ...formattedContacts]
-  combined.sort((a, b) => new Date(a.date ?? 0).getTime() - new Date(b.date ?? 0).getTime())
+  combined.sort((a, b) => new Date(b.date ?? 0).getTime() - new Date(a.date ?? 0).getTime())
   return NextResponse.json(combined)
 }
 

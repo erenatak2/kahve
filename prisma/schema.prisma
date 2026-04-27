@@ -202,15 +202,17 @@ model PaymentNotification {
 }
 
 model CallLog {
-  id         String   @id @default(cuid())
-  customerId String
-  note       String
-  calledAt   DateTime @default(now())
-  calledBy   String?  // Hangi satıcının aradığı (userId)
-  calledByName String? // Satıcı adı (denormalized, hız için)
-  outcome    String   @default("GORUSTUK") // GORUSTUK, ULASAMADIK, MESAJ_BIRAKTIK
+  id           String   @id @default(cuid())
+  customerId   String?
+  contactId    String?
+  note         String
+  calledAt     DateTime @default(now())
+  calledBy     String?  // Hangi satıcının aradığı (userId)
+  calledByName String?  // Satıcı adı (denormalized, hız için)
+  outcome      String   @default("GORUSTUK") // GORUSTUK, ULASAMADIK, MESAJ_BIRAKTIK
 
-  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  customer     Customer? @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  contact      Contact?  @relation(fields: [contactId], references: [id], onDelete: Cascade)
 }
 
 model Contact {
@@ -229,4 +231,5 @@ model Contact {
   updatedAt   DateTime @updatedAt
 
   customer    Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  callLogs    CallLog[]
 }

@@ -13,6 +13,7 @@ interface Message {
 }
 
 export function AdminChatBot() {
+  const { toast } = useToast()
   const [isOpen, setIsOpen] = useState(false)
   const [input, setInput] = useState('')
   const [messages, setMessages] = useState<Message[]>([

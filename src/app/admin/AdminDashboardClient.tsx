@@ -27,18 +27,30 @@ export default function AdminDashboardClient({ initialData, session }: AdminDash
   const [whatsappMenu, setWhatsappMenu] = useState<string | null>(null)
   const [notificationsEnabled, setNotificationsEnabled] = useState(false)
   const [schedulingCall, setSchedulingCall] = useState<string | null>(null)
-  
+
   const audioRef = useRef<HTMLAudioElement | null>(null)
 
   useEffect(() => {
     // Ses dosyasını hazırla
-    audioRef.current = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3')
-    
+    audioRef.current = new Audio('https://assets.mixkit.co/active_storage/sfx/2869-2869-preview.mp3')
+
     // Tarayıcı bildirim izni kontrolü
     if (typeof window !== 'undefined' && 'Notification' in window) {
       if (Notification.permission === 'granted') {
         setNotificationsEnabled(true)
       }
+    }
+
+    // Bugünün tamamlanan aramalarını yükle
+    const today = new Date().toDateString()
+    const savedDate = localStorage.getItem('completedCallDate')
+    if (savedDate === today) {
+      const savedIds = JSON.parse(localStorage.getItem('completedCallIds') || '[]')
+      setCompletedIds(new Set(savedIds))
+    } else {
+      // Yeni gün, localStorage'ı temizle
+      localStorage.removeItem('completedCallDate')
+      localStorage.removeItem('completedCallIds')
     }
   }, [])
 
@@ -96,7 +108,12 @@ export default function AdminDashboardClient({ initialData, session }: AdminDash
           relatedId: (item.type === 'ORDER' || item.type === 'CONTACT') ? item.id : undefined
         })
       })
-      setCompletedIds(prev => new Set(Array.from(prev).concat(item.id)))
+      setCompletedIds(prev => {
+        const newSet = new Set(Array.from(prev).concat(item.id))
+        localStorage.setItem('completedCallDate', new Date().toDateString())
+        localStorage.setItem('completedCallIds', JSON.stringify(Array.from(newSet)))
+        return newSet
+      })
       toast({ title: '✅ Tamamlandı', description: `${item.name} araması tamamlandı.` })
     } catch {
       toast({ title: 'Hata', variant: 'destructive' })

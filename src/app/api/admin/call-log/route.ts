@@ -11,15 +11,26 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const customerId = searchParams.get('customerId')
 
-  if (!customerId) return NextResponse.json({ error: 'customerId gerekli' }, { status: 400 })
+  if (customerId) {
+    const logs = await prisma.callLog.findMany({
+      where: { customerId },
+      orderBy: { calledAt: 'desc' },
+      take: 20
+    })
+    return NextResponse.json(logs)
+  }
 
-  const logs = await prisma.callLog.findMany({
-    where: { customerId },
+  // Tüm arama geçmişi (Admin/Takip sayfasındaki "Geçmiş" için)
+  const allLogs = await prisma.callLog.findMany({
     orderBy: { calledAt: 'desc' },
-    take: 20
+    include: {
+      customer: { select: { businessName: true, user: { select: { name: true } } } },
+      contact: { select: { name: true } }
+    },
+    take: 50
   })
 
-  return NextResponse.json(logs)
+  return NextResponse.json(allLogs)
 }
 
 // POST: Yeni arama notu kaydet + takibi tamamla
@@ -28,29 +39,27 @@ export async function POST(req: NextRequest) {
   if (!session) return NextResponse.json({ error: 'Yetkisiz' }, { status: 401 })
 
   const body = await req.json()
-  const { customerId, note, outcome, type, relatedId } = body
+  const { customerId, contactId, note, outcome, type, relatedId } = body
 
-  if (!customerId && type !== 'CONTACT') return NextResponse.json({ error: 'customerId gerekli' }, { status: 400 })
+  if (!customerId && !contactId && type !== 'CONTACT') return NextResponse.json({ error: 'ID gerekli' }, { status: 400 })
 
   const calledBy = (session.user as any).id
   const calledByName = session.user?.name || 'Bilinmeyen'
 
-  // Arama notunu kaydet (Sadece customerId varsa)
-  let log = null
-  if (customerId) {
-    log = await prisma.callLog.create({
-      data: {
-        customerId,
-        note: note || '',
-        outcome: outcome || 'GORUSTUK',
-        calledBy,
-        calledByName
-      }
-    })
-  }
+  // Arama notunu kaydet
+  const log = await prisma.callLog.create({
+    data: {
+      customerId: customerId || undefined,
+      contactId: contactId || (type === 'CONTACT' ? relatedId : undefined),
+      note: note || '',
+      outcome: outcome || 'GORUSTUK',
+      calledBy,
+      calledByName
+    }
+  })
 
   // Takip tipine göre tamamla
-  if (type === 'CUSTOMER') {
+  if (type === 'CUSTOMER' && customerId) {
     await prisma.customer.update({
       where: { id: customerId },
       data: { followUpStatus: 'ARANDI', nextCallDate: null }
