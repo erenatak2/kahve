@@ -1,29 +1,243 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/components/ui/use-toast'
-import { Search, UserPlus, Phone, Mail, Building2, Calendar, MoreVertical, Edit, Trash2, Info, MessageSquare } from 'lucide-react'
+import { Search, UserPlus, Phone, Mail, Building2, Calendar, Edit, Trash2, Info, MessageSquare, ChevronDown, ChevronUp, LayoutGrid, List, X, ExternalLink } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog'
 import { format } from 'date-fns'
 import { tr } from 'date-fns/locale'
 
-interface KontaklarClientProps {
-  initialContacts: any[]
-  customers: any[]
-  session: any
+// ContactCard Component
+const ContactCard = ({ 
+  contact, 
+  index, 
+  viewMode,
+  handleOpenEditDialog, 
+  setDeleteConfirm
+}: { 
+  contact: any, 
+  index: number, 
+  viewMode: 'compact' | 'card',
+  handleOpenEditDialog: (c: any) => void, 
+  setDeleteConfirm: (c: any) => void
+}) => {
+  const isEven = index % 2 === 0;
+  const [isExpanded, setIsExpanded] = useState(false);
+  const isCard = viewMode === 'card';
+
+  if (isCard) {
+    const isPast = contact.reminderAt && new Date(contact.reminderAt) < new Date();
+    
+    return (
+      <Card 
+        className="group relative flex flex-col border-slate-200 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-default rounded-2xl overflow-hidden h-full bg-white border-2"
+      >
+        <CardContent className="p-5 flex flex-col h-full">
+          {/* Top Right Actions */}
+          <div className="absolute top-4 right-4 flex gap-1 items-center opacity-40 group-hover:opacity-100 transition-opacity">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="h-8 w-8 rounded-lg hover:bg-blue-50 hover:text-blue-600 transition-colors" 
+              onClick={(e) => { e.stopPropagation(); handleOpenEditDialog(contact); }}
+            >
+              <Edit className="h-4 w-4" />
+            </Button>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="h-8 w-8 rounded-lg hover:bg-red-50 hover:text-red-600 transition-colors" 
+              onClick={(e) => { e.stopPropagation(); setDeleteConfirm({ id: contact.id, name: contact.name }); }}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
+
+          {/* Header Section */}
+          <div className="flex items-center gap-4 mb-5 shrink-0 pr-16">
+            <div className="h-12 w-12 rounded-xl flex items-center justify-center font-bold text-xl bg-indigo-600 text-white shadow-md shrink-0">
+              {contact.name.charAt(0).toUpperCase()}
+            </div>
+            <div className="flex-1 min-w-0 text-left">
+              <h3 className="font-black text-slate-900 text-lg tracking-tight leading-tight uppercase">
+                {contact.name}
+              </h3>
+              <div className="mt-1 flex items-center gap-1.5 text-[11px] font-black text-slate-400 uppercase tracking-widest">
+                <UserPlus className="h-3 w-3" />
+                {contact.title || 'UNVAN YOK'}
+              </div>
+            </div>
+          </div>
+
+          {/* Contact Details */}
+          <div className="space-y-3 mb-5 shrink-0">
+            <div className="flex items-center gap-3 text-sm font-bold text-slate-700">
+              <Building2 className="h-4 w-4 text-blue-500 shrink-0" />
+              <span className="truncate">{contact.customer?.businessName || contact.companyName || 'BAĞLI FİRMA YOK'}</span>
+            </div>
+            <div className="flex items-center gap-3 text-sm font-bold text-slate-700">
+              <Phone className="h-4 w-4 text-emerald-500 shrink-0" />
+              <span>{contact.phone || 'Telefon Yok'}</span>
+            </div>
+            <div className="flex items-center gap-3 text-sm font-bold text-slate-700">
+              <Mail className="h-4 w-4 text-indigo-500 shrink-0" />
+              <span className="truncate">{contact.email || 'E-posta Yok'}</span>
+            </div>
+          </div>
+
+          {/* Notes Section - Warm Background */}
+          <div className="flex-1 mb-5">
+            <div className="flex items-center gap-1.5 mb-1.5">
+              <MessageSquare className="h-3 w-3 text-amber-500" />
+              <span className="text-[11px] font-black text-amber-600 uppercase tracking-widest">NOTLAR</span>
+            </div>
+            <div className="bg-amber-50/60 rounded-xl p-4 border border-amber-100 h-full min-h-[100px]">
+              <p className="text-sm font-bold text-amber-900 italic leading-relaxed whitespace-pre-wrap">
+                {contact.notes || 'Görüşme notu bulunmuyor...'}
+              </p>
+            </div>
+          </div>
+
+          {/* Footer Area - Centered Badge */}
+          <div className="mt-auto pt-2 shrink-0">
+            {contact.reminderAt ? (
+              <div className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border-2 font-black text-[11px] uppercase tracking-wider shadow-sm ${
+                isPast 
+                  ? 'bg-red-50 text-red-600 border-red-100 shadow-red-50' 
+                  : 'bg-emerald-50 text-emerald-700 border-emerald-100 shadow-emerald-50'
+              }`}>
+                <Calendar className="h-4 w-4" />
+                {format(new Date(contact.reminderAt), 'd MMMM yyyy  -  HH:mm', { locale: tr })}
+              </div>
+            ) : (
+              <div className="flex items-center justify-center py-2.5 rounded-xl border-2 border-dashed border-slate-100 text-[10px] font-black text-slate-300 uppercase tracking-widest">
+                Hatırlatıcı Yok
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  return (
+    <div 
+      className={`rounded-xl border transition-all duration-300 relative group overflow-hidden ${
+        isEven 
+          ? 'bg-white border-slate-200/60 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)] hover:shadow-md' 
+          : 'bg-slate-50/70 border-slate-200/40 shadow-sm hover:shadow-md'
+      } py-2 px-3`}
+    >
+      {/* Üst Taraf: Tıklanabilir Alan */}
+      <div 
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="flex flex-col lg:flex-row lg:items-center gap-3 lg:gap-4 cursor-pointer hover:opacity-80 transition-opacity"
+      >
+        {/* Sol Taraf: Profil ve Ana Bilgiler */}
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          <div className="h-10 w-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-lg shrink-0 shadow-sm group-hover:scale-105 transition-transform">
+            {contact.name.charAt(0).toUpperCase()}
+          </div>
+          
+          <div className="flex flex-col min-w-0">
+            <h3 className="font-bold text-slate-900 text-base leading-none mb-1.5 group-hover:text-indigo-600 transition-colors truncate">
+              {contact.name}
+            </h3>
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+              <span className="inline-flex px-1.5 py-0.5 rounded bg-slate-100 text-[10px] font-black text-slate-500 uppercase tracking-wider border border-slate-200/50">
+                {contact.title || 'UNVAN YOK'}
+              </span>
+              <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-400">
+                <Building2 className="h-3 w-3 text-blue-500" />
+                <span className="truncate max-w-[150px]">{contact.customer?.businessName || contact.companyName || 'FİRMA YOK'}</span>
+              </div>
+              {contact.phone && (
+                <div className="flex items-center gap-2 px-2 py-0.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-100 shadow-sm ml-1">
+                  <Phone className="h-3 w-3" />
+                  <span className="text-xs font-black tracking-tight">{contact.phone}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Orta Taraf: İletişim ve Hatırlatıcı */}
+        <div className="flex flex-wrap items-center gap-2 lg:gap-4 shrink-0">
+          <div className="flex items-center gap-2 px-2.5 py-1 rounded-lg bg-amber-100 border border-amber-200 shadow-sm">
+            {contact.reminderAt ? (
+              <>
+                <Calendar className="h-3.5 w-3.5 text-amber-700" />
+                <span className="text-[11px] font-black text-amber-800 uppercase tracking-tight">
+                  {format(new Date(contact.reminderAt), 'd MMM  -  HH:mm', { locale: tr })}
+                </span>
+              </>
+            ) : (
+              <div className="h-5" />
+            )}
+          </div>
+
+          <div className="flex gap-1.5" onClick={(e) => e.stopPropagation()}>
+            {contact.notes && (
+              <Button 
+                variant="outline" 
+                size="icon" 
+                className={`h-8 w-8 rounded-lg border-slate-200 transition-all ${isExpanded ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white hover:bg-indigo-50 hover:text-indigo-600'}`}
+                onClick={() => setIsExpanded(!isExpanded)}
+              >
+                <MessageSquare className="h-4 w-4" />
+              </Button>
+            )}
+            <Button 
+              variant="outline" 
+              size="icon" 
+              className="h-8 w-8 rounded-lg border-slate-200 bg-white hover:bg-blue-50 hover:text-blue-600 transition-colors" 
+              onClick={() => handleOpenEditDialog(contact)}
+            >
+              <Edit className="h-4 w-4" />
+            </Button>
+            <Button 
+              variant="outline" 
+              size="icon" 
+              className="h-8 w-8 rounded-lg border-slate-200 bg-white hover:bg-red-50 hover:text-red-600 transition-colors" 
+              onClick={() => setDeleteConfirm({ id: contact.id, name: contact.name })}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Genişleyen Notlar: Tıklanamaz ve Kopyalanabilir Alan */}
+      {isExpanded && contact.notes && (
+        <div className="mt-3 pt-3 border-t border-slate-100 animate-in slide-in-from-top-2 duration-300">
+          <div 
+            className="bg-slate-50 rounded-xl p-3 border border-slate-200 relative cursor-default"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="text-sm font-bold text-slate-800 leading-relaxed whitespace-pre-wrap pr-4">
+              {contact.notes}
+            </p>
+          </div>
+        </div>
+      )}
+    </div>
+  )
 }
 
 export default function KontaklarClient({ initialContacts, customers, session }: KontaklarClientProps) {
   const [contacts, setContacts] = useState(initialContacts)
   const [search, setSearch] = useState('')
+
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string, name: string } | null>(null)
   const [editingContact, setEditingContact] = useState<any>(null)
   const [loading, setLoading] = useState(false)
+  const [isInitialLoad, setIsInitialLoad] = useState(true)
+  const [viewMode, setViewMode] = useState<'compact' | 'card'>('compact')
   const { toast } = useToast()
 
   const [formData, setFormData] = useState({
@@ -37,16 +251,26 @@ export default function KontaklarClient({ initialContacts, customers, session }:
     reminderAt: ''
   })
 
+  useEffect(() => {
+    // Initial skeleton simulation (optional, just to show the effect if data loads fast)
+    const t = setTimeout(() => setIsInitialLoad(false), 500)
+    return () => clearTimeout(t)
+  }, [])
+
+
+
   const filteredContacts = contacts.filter((c: any) => 
     c.name.toLowerCase().includes(search.toLowerCase()) ||
     c.customer?.businessName?.toLowerCase().includes(search.toLowerCase()) ||
     c.companyName?.toLowerCase().includes(search.toLowerCase()) ||
     c.customer?.user?.name?.toLowerCase().includes(search.toLowerCase()) ||
     c.title?.toLowerCase().includes(search.toLowerCase())
-  )
+  ).sort((a: any, b: any) => a.name.localeCompare(b.name, 'tr'))
 
   const handleOpenAddDialog = () => {
     setEditingContact(null)
+    const now = new Date()
+    const formattedNow = format(now, "yyyy-MM-dd'T'HH:mm")
     setFormData({
       name: '',
       title: '',
@@ -55,7 +279,7 @@ export default function KontaklarClient({ initialContacts, customers, session }:
       notes: '',
       customerId: '',
       companyName: '',
-      reminderAt: ''
+      reminderAt: formattedNow
     })
     setIsDialogOpen(true)
   }
@@ -163,106 +387,100 @@ export default function KontaklarClient({ initialContacts, customers, session }:
   }
 
   return (
-    <div className="p-4 md:p-6 space-y-6 bg-slate-50/50 min-h-screen">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-            <Building2 className="h-6 w-6 text-blue-600" />
-            Kontaklar
-          </h1>
-          <p className="text-slate-500 text-sm font-medium mt-1">İkinci ve üçüncü dereceden firma yetkililerini yönetin</p>
+    <div className="bg-slate-50/50 min-h-screen pb-12">
+      {/* Sticky Header */}
+      <div className="sticky top-0 z-20 bg-slate-50/90 backdrop-blur-xl border-b border-slate-200/50 px-4 md:px-6 py-4 md:py-6 shadow-sm mb-8">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-3 mb-5">
+          <div>
+            <h1 className="text-lg md:text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+              <Building2 className="h-5 w-5 text-blue-600" />
+              Kontaklar
+            </h1>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="flex bg-slate-200/50 p-1 rounded-lg border border-slate-200 mr-1">
+              <Button 
+                variant={viewMode === 'compact' ? 'default' : 'ghost'} 
+                size="sm" 
+                onClick={() => setViewMode('compact')}
+                className={`h-7 rounded-md px-2 text-xs ${viewMode === 'compact' ? 'bg-white text-blue-600 shadow-sm hover:bg-white' : 'text-slate-500 hover:bg-slate-300/30'}`}
+              >
+                <List className="h-3.5 w-3.5 mr-1" />
+                Kompakt
+              </Button>
+              <Button 
+                variant={viewMode === 'card' ? 'default' : 'ghost'} 
+                size="sm" 
+                onClick={() => setViewMode('card')}
+                className={`h-7 rounded-md px-2 text-xs ${viewMode === 'card' ? 'bg-white text-blue-600 shadow-sm hover:bg-white' : 'text-slate-500 hover:bg-slate-300/30'}`}
+              >
+                <LayoutGrid className="h-3.5 w-3.5 mr-1" />
+                Kartvizit
+              </Button>
+            </div>
+            <Button onClick={handleOpenAddDialog} size="sm" className="bg-blue-600 hover:bg-blue-700 text-white font-bold h-9 px-4 rounded-lg shadow-blue-100 transition-all active:scale-95">
+              <UserPlus className="h-3.5 w-3.5 mr-1.5" />
+              Yeni Ekle
+            </Button>
+          </div>
         </div>
-        <Button onClick={handleOpenAddDialog} className="bg-blue-600 hover:bg-blue-700 text-white font-bold h-11 px-6 rounded-xl shadow-lg shadow-blue-100 transition-all active:scale-95">
-          <UserPlus className="h-4 w-4 mr-2" />
-          Yeni Kontak Ekle
-        </Button>
+
+        <div className="max-w-7xl mx-auto relative group">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
+          <Input 
+            placeholder="İsim, firma veya ünvan ile ara..." 
+            className="pl-9 h-10 bg-white border-slate-200 rounded-xl shadow-sm focus:ring-2 focus:ring-blue-50 transition-all font-medium text-sm"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
       </div>
 
-      <div className="relative group">
-        <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
-        <Input 
-          placeholder="İsim, firma veya ünvan ile ara..." 
-          className="pl-12 h-14 bg-white border-slate-200 rounded-2xl shadow-sm focus:ring-4 focus:ring-blue-50/50 transition-all font-medium text-lg"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filteredContacts.length === 0 ? (
-          <Card className="col-span-full border-dashed border-2 py-20 bg-slate-50/50">
-            <CardContent className="flex flex-col items-center justify-center text-slate-400">
+      <div className="max-w-7xl mx-auto px-4 md:px-6">
+        <div>
+          {isInitialLoad ? (
+            <div className="flex flex-col gap-4">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="p-4 sm:p-5 flex flex-col lg:flex-row lg:items-center gap-4 lg:gap-6 animate-pulse bg-white rounded-2xl border border-slate-200/60 shadow-sm">
+                  <div className="flex items-center gap-4 flex-1">
+                    <div className="h-12 w-12 rounded-2xl bg-slate-200 shrink-0"></div>
+                    <div className="flex flex-col gap-2 flex-1">
+                      <div className="h-5 bg-slate-200 rounded w-1/3"></div>
+                      <div className="h-4 bg-slate-100 rounded w-1/2"></div>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:items-center gap-3 flex-1">
+                    <div className="h-8 bg-slate-100 rounded w-32"></div>
+                    <div className="h-8 bg-slate-100 rounded w-40"></div>
+                  </div>
+                  <div className="h-8 bg-slate-100 rounded w-24 shrink-0"></div>
+                </div>
+              ))}
+            </div>
+          ) : filteredContacts.length === 0 ? (
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden py-20 flex flex-col items-center justify-center text-slate-400">
               <Building2 className="h-12 w-12 opacity-20 mb-4" />
               <p className="text-lg font-bold">Kontak bulunamadı</p>
               <p className="text-sm font-medium">Arama kriterlerinizi değiştirin veya yeni bir kontak ekleyin.</p>
-            </CardContent>
-          </Card>
-        ) : (
-          filteredContacts.map((contact: any) => (
-            <Card key={contact.id} className="border-slate-200 hover:shadow-xl transition-all group relative overflow-hidden bg-white/50 backdrop-blur-sm">
-              <CardContent className="p-5 space-y-4">
-                <div className="flex justify-between items-start">
-                  <div className="flex gap-3">
-                    <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-black text-lg shadow-md group-hover:scale-110 transition-transform">
-                      {contact.name.charAt(0).toUpperCase()}
-                    </div>
-                    <div>
-                      <h3 className="font-black text-slate-800 uppercase tracking-tight leading-none mb-1.5">{contact.name}</h3>
-                      <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-slate-100 border border-slate-200 w-fit">
-                         <Info className="h-3 w-3 text-slate-500" />
-                         <span className="text-[10px] font-black text-slate-600 uppercase tracking-wider">{contact.title || 'UNVAN BELİRTİLMEDİ'}</span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex gap-1.5">
-                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hover:bg-blue-50 hover:text-blue-600 transition-colors" onClick={() => handleOpenEditDialog(contact)}>
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hover:bg-red-50 hover:text-red-600 transition-colors" onClick={() => setDeleteConfirm({ id: contact.id, name: contact.name })}>
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="space-y-2.5 pt-2">
-                  <div className="flex items-center gap-2.5 text-sm font-bold text-slate-700">
-                    <Building2 className="h-4 w-4 text-blue-500" />
-                    <span className="truncate">{contact.customer?.businessName || contact.companyName || 'BAĞLI FİRMA YOK'}</span>
-                  </div>
-                  <div className="flex items-center gap-2.5 text-sm font-bold text-slate-600">
-                    <Phone className="h-4 w-4 text-slate-400" />
-                    {contact.phone || 'Telefon yok'}
-                  </div>
-                  <div className="flex items-center gap-2.5 text-sm font-bold text-slate-600">
-                    <Mail className="h-4 w-4 text-slate-400" />
-                    <span className="truncate">{contact.email || 'E-posta yok'}</span>
-                  </div>
-                </div>
-
-                {contact.notes && (
-                  <div className="bg-amber-50/50 border border-amber-100 rounded-xl p-3 mt-4 group-hover:bg-amber-50 transition-colors">
-                    <div className="flex items-center gap-2 mb-1.5">
-                       <MessageSquare className="h-3.5 w-3.5 text-amber-600" />
-                       <span className="text-[10px] font-black text-amber-800 uppercase tracking-wider">NOTLAR</span>
-                    </div>
-                    <p className="text-xs font-semibold text-amber-900 leading-relaxed italic line-clamp-2">
-                      "{contact.notes}"
-                    </p>
-                  </div>
-                )}
-
-                {contact.reminderAt && (
-                   <div className={`mt-4 flex items-center justify-center gap-2 py-2.5 rounded-xl border font-black text-[11px] uppercase tracking-widest transition-all ${
-                     new Date(contact.reminderAt) < new Date() ? 'bg-red-50 text-red-700 border-red-100' : 'bg-green-50 text-green-700 border-green-100'
-                   }`}>
-                      <Calendar className="h-4 w-4" />
-                      {format(new Date(contact.reminderAt), 'd MMMM yyyy - HH:mm', { locale: tr })}
-                   </div>
-                )}
-              </CardContent>
-            </Card>
-          ))
-        )}
+            </div>
+          ) : (
+            <div className={viewMode === 'card' 
+              ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6" 
+              : "flex flex-col gap-2 md:gap-2.5"
+            }>
+              {filteredContacts.map((contact: any, index: number) => (
+                <ContactCard 
+                  key={contact.id} 
+                  contact={contact} 
+                  index={index}
+                  viewMode={viewMode}
+                  handleOpenEditDialog={handleOpenEditDialog} 
+                  setDeleteConfirm={setDeleteConfirm}
+                />
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -331,8 +549,29 @@ export default function KontaklarClient({ initialContacts, customers, session }:
                 <Input type="email" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} className="h-11 rounded-xl border-slate-200 font-bold" />
               </div>
               <div className="space-y-2 col-span-2">
-                <Label className="text-xs font-black text-slate-500 uppercase tracking-wider ml-1">HATIRLATICI TARİHİ</Label>
-                <Input type="datetime-local" value={formData.reminderAt} onChange={e => setFormData({ ...formData, reminderAt: e.target.value })} className="h-11 rounded-xl border-slate-200 font-bold" />
+                <Label className="text-xs font-black text-slate-500 uppercase tracking-wider ml-1">HATIRLATICI (TARİH VE SAAT)</Label>
+                <div className="grid grid-cols-2 gap-3">
+                  <Input 
+                    type="date" 
+                    value={formData.reminderAt ? formData.reminderAt.split('T')[0] : ''} 
+                    onChange={e => {
+                      const newDate = e.target.value;
+                      const currentTime = formData.reminderAt?.split('T')[1] || '09:00';
+                      setFormData({ ...formData, reminderAt: `${newDate}T${currentTime}` });
+                    }} 
+                    className="h-11 rounded-xl border-slate-200 font-bold" 
+                  />
+                  <Input 
+                    type="time" 
+                    value={formData.reminderAt ? formData.reminderAt.split('T')[1] : ''} 
+                    onChange={e => {
+                      const newTime = e.target.value;
+                      const currentDate = formData.reminderAt?.split('T')[0] || format(new Date(), 'yyyy-MM-dd');
+                      setFormData({ ...formData, reminderAt: `${currentDate}T${newTime}` });
+                    }} 
+                    className="h-11 rounded-xl border-slate-200 font-bold" 
+                  />
+                </div>
               </div>
               <div className="space-y-2 col-span-2">
                 <Label className="text-xs font-black text-slate-500 uppercase tracking-wider ml-1">ÖZEL NOTLAR</Label>

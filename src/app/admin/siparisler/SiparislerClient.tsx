@@ -355,14 +355,37 @@ export default function SiparislerClient({ initialOrders, initialCustomers, init
                   {items.map(i => {
                     const p = products.find((pr: any) => pr.id === i.productId)
                     return (
-                      <div key={i.productId} className="flex items-center justify-between text-sm">
-                        <span>{p?.name}</span>
-                        <div className="flex items-center gap-2">
-                          <button type="button" onClick={() => setItems(prev => prev.map(it => it.productId === i.productId ? { ...it, quantity: Math.max(1, it.quantity - 1) } : it))} className="w-6 h-6 rounded bg-gray-100 text-sm">-</button>
-                          <span className="w-6 text-center">{i.quantity}</span>
-                          <button type="button" onClick={() => setItems(prev => prev.map(it => it.productId === i.productId ? { ...it, quantity: it.quantity + 1 } : it))} className="w-6 h-6 rounded bg-gray-100 text-sm">+</button>
-                          <span className="font-semibold w-20 text-right">{formatCurrency(i.unitPrice * i.quantity)}</span>
-                          <button type="button" onClick={() => setItems(prev => prev.filter(it => it.productId !== i.productId))} className="text-red-500 text-xs">✕</button>
+                      <div key={i.productId} className="flex flex-col xl:flex-row xl:items-center justify-between text-sm py-2 border-b last:border-0 gap-3">
+                        <span className="font-medium flex-1">{p?.name}</span>
+                        <div className="flex items-center gap-2 shrink-0 self-end xl:self-auto">
+                          <Button 
+                            type="button" 
+                            variant="outline" 
+                            size="sm" 
+                            className="h-8 px-2.5 text-xs font-black bg-orange-50 text-orange-600 border-orange-200 hover:bg-orange-100 hover:text-orange-700 uppercase tracking-tight shadow-sm" 
+                            onClick={() => setItems(prev => prev.map(it => it.productId === i.productId ? { ...it, quantity: it.quantity + 300 } : it))}
+                          >
+                            + Koli (300)
+                          </Button>
+                          <div className="flex items-center border rounded-lg overflow-hidden bg-white shadow-sm">
+                            <button type="button" onClick={() => setItems(prev => prev.map(it => it.productId === i.productId ? { ...it, quantity: Math.max(1, it.quantity - 1) } : it))} className="w-8 h-8 flex items-center justify-center bg-slate-50 hover:bg-slate-100 text-slate-600 transition-colors font-bold">-</button>
+                            <input 
+                              type="number" 
+                              min="1" 
+                              value={i.quantity === 0 ? '' : i.quantity} 
+                              onChange={(e) => {
+                                const val = parseInt(e.target.value)
+                                setItems(prev => prev.map(it => it.productId === i.productId ? { ...it, quantity: isNaN(val) ? 0 : val } : it))
+                              }}
+                              onBlur={() => {
+                                if (i.quantity < 1) setItems(prev => prev.map(it => it.productId === i.productId ? { ...it, quantity: 1 } : it))
+                              }}
+                              className="w-16 h-8 text-center border-x font-black text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-slate-800" 
+                            />
+                            <button type="button" onClick={() => setItems(prev => prev.map(it => it.productId === i.productId ? { ...it, quantity: i.quantity + 1 } : it))} className="w-8 h-8 flex items-center justify-center bg-slate-50 hover:bg-slate-100 text-slate-600 transition-colors font-bold">+</button>
+                          </div>
+                          <span className="font-black w-24 text-right text-blue-700 text-base">{formatCurrency(i.unitPrice * Math.max(1, i.quantity))}</span>
+                          <button type="button" onClick={() => setItems(prev => prev.filter(it => it.productId !== i.productId))} className="w-8 h-8 flex items-center justify-center text-red-500 hover:bg-red-50 rounded-lg transition-colors ml-1" title="Sil">✕</button>
                         </div>
                       </div>
                     )

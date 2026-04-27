@@ -93,7 +93,7 @@ export default function AdminDashboardClient({ initialData, session }: AdminDash
           note: 'Dashboard\'dan tamamlandı',
           outcome: 'GORUSTUK',
           type: item.type,
-          relatedId: item.type === 'ORDER' ? item.id : undefined
+          relatedId: (item.type === 'ORDER' || item.type === 'CONTACT') ? item.id : undefined
         })
       })
       setCompletedIds(prev => new Set(Array.from(prev).concat(item.id)))

@@ -218,6 +218,7 @@ async function getDashboardData(session: any) {
       ...todayOrderReminders.map(o => ({
         id: o.id,
         type: 'ORDER' as const,
+        customerId: o.customerId,
         name: o.customer?.businessName || o.customer?.user?.name || '',
         phone: o.customer?.phone || '',
         date: o.reminderAt,

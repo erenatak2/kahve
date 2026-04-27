@@ -18,11 +18,8 @@ export async function POST(req: NextRequest) {
 
     const now = new Date()
     const lowerMessage = message.toLowerCase()
-    
-    // Analiz talebi tespiti (Sadece bu kelimeler varsa derin verilere bakacak)
     const isAnalysisRequested = /analiz|durum|rapor|istatistik|finans|performans/.test(lowerMessage)
 
-    // 1. TEMEL VERİLER (Her zaman lazım)
     const [allCustomersShort, allProductsShort, recentOrders] = await Promise.all([
       prisma.customer.findMany({ select: { id: true, user: { select: { name: true } }, discountRate: true } }),
       prisma.product.findMany({ where: { isActive: true, stock: { gt: 0 } }, select: { id: true, name: true, salePrice: true, code: true } }),
@@ -34,73 +31,47 @@ export async function POST(req: NextRequest) {
     ])
 
     let analysisContext = ""
-    
-    // 2. DERİN VERİLER (Sadece analiz istendiğinde)
     if (isAnalysisRequested) {
-      const [thisMonthStats, paymentStats, sellerStats] = await Promise.all([
+      const [thisMonthStats, paymentStats] = await Promise.all([
         prisma.order.aggregate({ _sum: { totalAmount: true }, where: { createdAt: { gte: new Date(now.getFullYear(), now.getMonth(), 1) } } }),
-        prisma.payment.groupBy({ by: ['status'], _sum: { amount: true } }),
-        prisma.user.findMany({
-          where: { role: { in: ['SATICI', 'ADMIN'] } },
-          select: {
-            name: true,
-            sellerCustomers: {
-              select: {
-                orders: { select: { totalAmount: true } },
-                paymentNotifications: { where: { status: 'ONAYLANDI' }, select: { amount: true } }
-              }
-            }
-          }
-        })
+        prisma.payment.groupBy({ by: ['status'], _sum: { amount: true } })
       ])
-
       const paid = paymentStats.find(p => p.status === 'ODENDI')?._sum.amount || 0
       const pending = (paymentStats.find(p => p.status === 'BEKLIYOR')?._sum.amount || 0) + (paymentStats.find(p => p.status === 'GECIKTI')?._sum.amount || 0)
-      
-      analysisContext = `
-        ANALİTİK VERİLER (SADECE SORULURSA KULLAN):
-        - Bu Ay Ciro: ${Number(thisMonthStats._sum?.totalAmount || 0).toLocaleString('tr-TR')} TL
-        - Tahsilat Başarısı: %${paid > 0 ? ((paid / (paid + pending)) * 100).toFixed(1) : 0}
-        - Ekip Performansı: ${sellerStats.map(s => {
-          const sales = s.sellerCustomers.reduce((sum, c) => sum + c.orders.reduce((os, o) => os + o.totalAmount, 0), 0)
-          return `${s.name}: ${Number(sales).toLocaleString('tr-TR')} TL Satış`
-        }).join(', ')}
-      `
+      analysisContext = `CIRO: ${Number(thisMonthStats._sum?.totalAmount || 0).toLocaleString('tr-TR')} TL, TAHSİLAT: %${paid > 0 ? ((paid / (paid + pending)) * 100).toFixed(1) : 0}`
     }
 
-    const contextString = `
-      Sen Erkan Bey'in pratik asistanısın. Erkan Bey uzun raporlardan ve moral bozan uyarılardan Nefret Eder.
+    const systemInstruction = `
+      Sen Erkan Bey'in minimalist operasyon asistanısın. 
+      KESİN KURALLAR:
+      1. ASLA ama ASLA Erkan Bey'e finansal analiz, personel performansı veya risk uyarısı yapma (Analiz istenmedikçe).
+      2. GEÇMİŞ HATALARI UNUT: Botun geçmişte yaptığı uzun, moral bozucu ve geveze konuşmaları ASLA taklit etme.
+      3. CEVAP SINIRI: Cevabın maksimum 2-3 cümle olsun.
       
-      TEMEL KURALLAR:
-      1. KISA KONUŞ: Cevapların maksimum 1-2 cümle olsun.
-      2. MORAL BOZMA: Erkan Bey sormadıkça kimsenin performansını eleştirme, "risk var" diye ders verme.
-      3. ANLIK TAKİP: Erkan Bey bir olaydan (sipariş vs.) bahsederse önce aşağıdaki "SON İŞLEMLER"e bak. Oradaysa "Hangi müşteri?" diye sorma, bildiğini göster.
+      GÖREVİN:
+      - "Sipariş verdi" dendiğinde sadece "Hangi müşteriye kaç adet?" de.
+      - Sipariş taslağı için gizemli kodu ekle: [[CREATE_ORDER:{...}]]
       
-      SON İŞLEMLER (ANLIK):
-      ${recentOrders.map(o => `- **${o.customer.user?.name}** için **${Number(o.totalAmount).toLocaleString('tr-TR')} TL** (Temsilci: ${o.customer.salesRep?.name || 'Yok'})`).join('\n')}
-      
-      ${analysisContext}
-      
-      MASTER DATA:
+      GÜNCEL VERİLER:
+      - Son Siparişler: ${recentOrders.map(o => `${o.customer.user?.name}: ${o.totalAmount} TL`).join(', ')}
       - Müşteriler: ${JSON.stringify(allCustomersShort.map(c => ({ id: c.id, name: c.user?.name })))}
-      - Ürünler: ${JSON.stringify(allProductsShort.map(p => ({ id: p.id, name: p.name, price: p.salePrice })))}
-      
-      TALİMAT: Sipariş hazırlarken eksik varsa tek cümleyle sor. Onay alırsan: [[CREATE_ORDER:{"customerId":"ID", "items":[{"productId":"ID", "quantity": ADET, "unitPrice": FİYAT}] }]]
+      - Ürünler: ${JSON.stringify(allProductsShort.map(p => ({ id: p.id, name: p.name, fiyati: p.salePrice })))}
+      ${analysisContext}
     `
 
     const genAI = new GoogleGenerativeAI(apiKey)
-    const geminiModel = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' })
-
-    const chat = geminiModel.startChat({
-      history: [
-        { role: 'user', parts: [{ text: contextString }] },
-        { role: 'model', parts: [{ text: 'Anlaşıldı Erkan Bey, hazırım. Nasıl yardımcı olabilirim?' }] },
-        ...history.slice(-10).map((h: any) => ({
-          role: h.role === 'user' ? 'user' : 'model',
-          parts: [{ text: String(h.content || '') }]
-        }))
-      ]
+    const geminiModel = genAI.getGenerativeModel({ 
+      model: 'gemini-1.5-flash',
+      systemInstruction: systemInstruction 
     })
+
+    // TEMİZ GEÇMİŞ: Botun eski geveze halini görmemesi için sadece kullanıcı mesajlarını veya son 2 mesajı alıyoruz
+    const cleanedHistory = history.slice(-4).filter((h: any) => h.role === 'user' || h.content.length < 200).map((h: any) => ({
+      role: h.role === 'user' ? 'user' : 'model',
+      parts: [{ text: String(h.content || '') }]
+    }))
+
+    const chat = geminiModel.startChat({ history: cleanedHistory })
 
     const result = await chat.sendMessage(message)
     const text = (await result.response).text()
@@ -108,6 +79,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ content: text })
   } catch (error: any) {
     console.error('Chat Error:', error)
-    return NextResponse.json({ error: 'Sistem şu an meşgul.' }, { status: 500 })
+    
+    const errorMessage = error?.message?.toLowerCase() || ''
+    if (errorMessage.includes('429') || errorMessage.includes('quota') || errorMessage.includes('rate limit')) {
+      return NextResponse.json({ error: 'AI hız sınırına takıldınız. Lütfen 1 dakika bekleyip tekrar deneyin.' }, { status: 429 })
+    }
+    
+    return NextResponse.json({ error: 'Sistem şu an meşgul, lütfen birazdan tekrar deneyin.' }, { status: 500 })
   }
 }

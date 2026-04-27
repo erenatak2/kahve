@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
         if (!isActive) return
         const now = new Date()
         try {
-          const [pendingOrders, notificationCount, customerCount, orderReminders, customerReminders] = await Promise.all([
+          const [pendingOrders, notificationCount, customerCount, orderReminders, customerReminders, contactReminders] = await Promise.all([
             prisma.order.count({ 
               where: { 
                 status: 'HAZIRLANIYOR',
@@ -54,9 +54,19 @@ export async function GET(request: NextRequest) {
             prisma.customer.count({ 
               where: { 
                 followUpStatus: 'BEKLIYOR', 
-                nextCallDate: { lte: now },
+                nextCallDate: { not: null, lte: now },
                 ...(role === 'SATICI' && { salesRepId: userId })
               } 
+            }),
+            prisma.contact.count({
+              where: {
+                reminderAt: { not: null, lte: now },
+                isActive: true,
+                OR: [
+                  { customerId: null },
+                  { customer: { salesRepId: role === 'SATICI' ? userId : undefined } }
+                ]
+              }
             })
           ])
           
@@ -64,7 +74,7 @@ export async function GET(request: NextRequest) {
             orders: pendingOrders, 
             notifications: notificationCount, 
             customers: customerCount,
-            reminders: orderReminders + customerReminders,
+            reminders: orderReminders + customerReminders + contactReminders,
             timestamp: Date.now() 
           })
           if (isActive) {

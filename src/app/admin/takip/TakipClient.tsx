@@ -205,9 +205,13 @@ export default function TakipClient({ initialReminders, session }: TakipClientPr
                         <p className="font-bold text-sm text-gray-900">{r.customerName}</p>
                         <span className={cn(
                           "text-[9px] px-1.5 py-0.5 rounded font-black uppercase w-fit",
-                          r.type === 'CUSTOMER' ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"
+                          r.type === 'CUSTOMER' ? "bg-purple-100 text-purple-700" : 
+                          r.type === 'CONTACT' ? "bg-emerald-100 text-emerald-700" :
+                          "bg-blue-100 text-blue-700"
                         )}>
-                          {r.type === 'CUSTOMER' ? 'DÜZENLİ TAKİP' : 'SİPARİŞ NOTU'}
+                          {r.type === 'CUSTOMER' ? 'DÜZENLİ TAKİP' : 
+                           r.type === 'CONTACT' ? 'YENİ KONTAK' : 
+                           'SİPARİŞ NOTU'}
                         </span>
                       </div>
                     </div>
@@ -222,8 +226,15 @@ export default function TakipClient({ initialReminders, session }: TakipClientPr
                       <span className="text-gray-300 text-xs">-</span>
                     )}
                   </TableCell>
-                  <TableCell className="hidden md:table-cell text-sm font-medium text-gray-600">
-                    {r.phone || '-'}
+                  <TableCell className="hidden md:table-cell">
+                    {r.phone ? (
+                      <div className="flex items-center gap-2 px-3 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-100 shadow-sm w-fit">
+                        <Phone className="h-3.5 w-3.5" />
+                        <span className="text-sm font-black tracking-tight">{r.phone}</span>
+                      </div>
+                    ) : (
+                      <span className="text-gray-300 text-xs">-</span>
+                    )}
                   </TableCell>
                   <TableCell className="hidden lg:table-cell">
                     <div className="max-w-[200px] text-xs text-gray-500 italic">

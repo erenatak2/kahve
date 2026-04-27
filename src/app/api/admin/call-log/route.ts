@@ -30,21 +30,24 @@ export async function POST(req: NextRequest) {
   const body = await req.json()
   const { customerId, note, outcome, type, relatedId } = body
 
-  if (!customerId) return NextResponse.json({ error: 'customerId gerekli' }, { status: 400 })
+  if (!customerId && type !== 'CONTACT') return NextResponse.json({ error: 'customerId gerekli' }, { status: 400 })
 
   const calledBy = (session.user as any).id
   const calledByName = session.user?.name || 'Bilinmeyen'
 
-  // Arama notunu kaydet
-  const log = await prisma.callLog.create({
-    data: {
-      customerId,
-      note: note || '',
-      outcome: outcome || 'GORUSTUK',
-      calledBy,
-      calledByName
-    }
-  })
+  // Arama notunu kaydet (Sadece customerId varsa)
+  let log = null
+  if (customerId) {
+    log = await prisma.callLog.create({
+      data: {
+        customerId,
+        note: note || '',
+        outcome: outcome || 'GORUSTUK',
+        calledBy,
+        calledByName
+      }
+    })
+  }
 
   // Takip tipine göre tamamla
   if (type === 'CUSTOMER') {
@@ -56,6 +59,11 @@ export async function POST(req: NextRequest) {
     await prisma.order.update({
       where: { id: relatedId },
       data: { followupStatus: 'ARANDI' }
+    })
+  } else if (type === 'CONTACT' && relatedId) {
+    await prisma.contact.update({
+      where: { id: relatedId },
+      data: { reminderAt: null }
     })
   }
 
