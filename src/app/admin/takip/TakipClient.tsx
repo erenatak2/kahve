@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
-import { Phone, Check, Search, MessageCircle, AlertCircle, X, Save, MapPin, History, ArrowRight, ArrowDownAz, Clock } from 'lucide-react'
+import { Phone, Check, Search, MessageCircle, AlertCircle, X, Save, MapPin, History, ArrowRight, ArrowDownAz, Clock, RotateCcw } from 'lucide-react'
 import { cn, formatDate } from '@/lib/utils'
 import { useToast } from '@/components/ui/use-toast'
 import { Input } from '@/components/ui/input'
@@ -95,6 +95,24 @@ export default function TakipClient({ initialReminders, session }: TakipClientPr
     setCallModal({ item })
     setCallNote('')
     setCallOutcome('GORUSTUK')
+  }
+
+  const clearReminder = async (item: any) => {
+    try {
+      const res = await fetch('/api/admin/reminders', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: item.id, type: item.type, clearReminder: true })
+      })
+      if (res.ok) {
+        toast({ title: 'Hatırlatıcı temizlendi' })
+        fetchReminders()
+      } else {
+        toast({ title: 'Hata', variant: 'destructive' })
+      }
+    } catch {
+      toast({ title: 'Hata', variant: 'destructive' })
+    }
   }
 
   const saveCallLog = async () => {
@@ -413,6 +431,15 @@ export default function TakipClient({ initialReminders, session }: TakipClientPr
                         >
                           <Phone className="h-4 w-4" />
                           <span className="hidden sm:inline">ARANDI</span>
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-9 w-9 text-slate-400 hover:text-red-600 hover:bg-red-50 transition-all rounded-xl"
+                          onClick={() => clearReminder(r)}
+                          title="Hatırlatıcıyı temizle"
+                        >
+                          <RotateCcw className="h-4 w-4" />
                         </Button>
                       </div>
                     </TableCell>

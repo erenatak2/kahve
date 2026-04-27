@@ -110,32 +110,38 @@ export async function PUT(req: NextRequest) {
   const session = await getServerSession(authOptions)
   if (!session) return NextResponse.json({ error: 'Yetkisiz' }, { status: 401 })
 
-  const url = new URL(req.url)
-  const idFromQuery = url.searchParams.get('id')
-  
-  const body = await req.json().catch(() => ({}))
-  const id = idFromQuery || body.id
-  const type = body.type || 'ORDER' // 'ORDER', 'CUSTOMER' veya 'CONTACT'
-  const status = body.status || 'ARANDI'
+  const body = await req.json()
+  const { id, type, status, clearReminder } = body
 
-  if (!id) return NextResponse.json({ error: 'ID gerekli' }, { status: 400 })
+  if (!id || !type) return NextResponse.json({ error: 'ID ve type gerekli' }, { status: 400 })
 
-  if (type === 'CUSTOMER') {
-    await prisma.customer.update({
-      where: { id },
-      data: { followUpStatus: status, nextCallDate: null }
-    })
-  } else if (type === 'CONTACT') {
-    await prisma.contact.update({
-      where: { id },
-      data: { reminderAt: null }
-    })
-  } else {
-    await prisma.order.update({
-      where: { id },
-      data: { followupStatus: status }
-    })
+  try {
+    if (type === 'CONTACT') {
+      await prisma.contact.update({
+        where: { id },
+        data: { reminderAt: clearReminder ? null : undefined }
+      })
+    } else if (type === 'ORDER') {
+      await prisma.order.update({
+        where: { id },
+        data: {
+          reminderAt: clearReminder ? null : undefined,
+          followupStatus: status || (clearReminder ? 'ARANDI' : undefined)
+        }
+      })
+    } else if (type === 'CUSTOMER') {
+      await prisma.customer.update({
+        where: { id },
+        data: {
+          nextCallDate: clearReminder ? null : undefined,
+          followUpStatus: status || (clearReminder ? 'ARANDI' : undefined)
+        }
+      })
+    }
+
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error('Hatırlatıcı güncelleme hatası:', error)
+    return NextResponse.json({ error: 'Hatırlatıcı güncellenemedi' }, { status: 500 })
   }
-
-  return NextResponse.json({ success: true })
 }
