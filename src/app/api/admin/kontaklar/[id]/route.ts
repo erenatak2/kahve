@@ -44,10 +44,10 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
   }
 
   try {
-    // Soft delete
+    // Soft delete - reminderAt'ı da null yap
     await prisma.contact.update({
       where: { id: params.id },
-      data: { isActive: false }
+      data: { isActive: false, reminderAt: null }
     })
     return NextResponse.json({ success: true })
   } catch (error) {
