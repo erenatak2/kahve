@@ -55,6 +55,7 @@ export async function GET(req: NextRequest) {
         gte: todayUTC,
         lt: tomorrowUTC
       },
+      isActive: true,
       OR: [
         { customerId: null },
         { customer: { salesRepId: role === 'SATICI' ? userId : undefined } }
