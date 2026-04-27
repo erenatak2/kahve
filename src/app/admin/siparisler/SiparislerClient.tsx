@@ -186,6 +186,31 @@ export default function SiparislerClient({ initialOrders, initialCustomers, init
     })
   }
 
+  const handleResetReminder = (id: string) => {
+    // Optimistik güncelleme: UI hemen temizlenir
+    setOrders(prev => prev.map(o => o.id === id ? {
+      ...o,
+      reminderNote: null,
+      reminderAt: null,
+      followupStatus: 'BEKLIYOR'
+    } : o))
+
+    toast({ title: 'Takip hatırlatıcısı sıfırlandı' })
+
+    // API çağrısı
+    fetch(`/api/siparisler/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        reminderNote: null,
+        reminderAt: null
+      }),
+      keepalive: true
+    }).catch(() => {
+      // Hata olursa UI zaten güncellenmiş durumda
+    })
+  }
+
   const formatInitialDate = (date: any) => {
     if (!date) return ''
     return new Date(date).toISOString().split('T')[0]
@@ -766,13 +791,25 @@ export default function SiparislerClient({ initialOrders, initialCustomers, init
                                     </Button>
                                   </div>
                                 ) : (
-                                  <Button
-                                    onClick={() => setEditingReminderId(o.id)}
-                                    variant="outline"
-                                    className="font-bold border-orange-600 text-orange-600 hover:bg-orange-50"
-                                  >
-                                    Düzenle
-                                  </Button>
+                                  <div className="flex gap-2">
+                                    <Button
+                                      onClick={() => setEditingReminderId(o.id)}
+                                      variant="outline"
+                                      className="font-bold border-orange-600 text-orange-600 hover:bg-orange-50"
+                                    >
+                                      Düzenle
+                                    </Button>
+                                    {o.reminderAt && (
+                                      <Button
+                                        onClick={() => handleResetReminder(o.id)}
+                                        variant="outline"
+                                        className="font-bold border-red-400 text-red-500 hover:bg-red-50"
+                                        title="Takip hatırlatıcısını sıfırla"
+                                      >
+                                        Sıfırla
+                                      </Button>
+                                    )}
+                                  </div>
                                 )}
                              </div>
                              <div className="flex items-center justify-between">
